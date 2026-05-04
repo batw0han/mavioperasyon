@@ -34,7 +34,7 @@ except:
 st.markdown(
     """
     <div style="text-align: center;">
-        <h1 style='color: #1E3A8A; margin-bottom: 0;'>MAVİ PLASTİK KİMYA İNŞAAT SAN VE TİC AŞ</h1>
+        <h1 style='color: #2596BE; margin-bottom: 0;'>MAVİ KİMYA</h1>
         <p style='color: #64748B; font-size: 1.1em;'>Operasyonel Analiz ve Hesaplama Paneli</p>
     </div>
     """, unsafe_allow_html=True
