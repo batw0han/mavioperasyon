@@ -150,4 +150,4 @@ elif islem == "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)":
             ])
 
 st.write("")
-st.caption("© 2026 Mavi Plastik Kimya San. Tic. Ltd. Şti. | B. KILIÇ")
+st.caption("© 2026 Mavi Plastik Kimya San ve Tic. A.Ş. | Batuhan KILIÇ")
