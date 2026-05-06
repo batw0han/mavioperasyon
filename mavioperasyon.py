@@ -130,7 +130,7 @@ elif "Çevirme" in islem:
         st.metric(label="Dönüştürülen Miktar", value=f"{sonuc:.2f} {birim}")
 
 elif islem == "Yoğunluk Hesaplama":
-    st.markdown("### 🧪 Yoğunluk (Density) Analizi")
+    st.markdown("### Yoğunluk - Density Hesaplama")
     col1, col2 = st.columns(2)
     with col1:
         kg_deger = st.number_input("Toplam Ağırlık (KG)", min_value=0.0, step=1.0)
