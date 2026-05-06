@@ -56,7 +56,13 @@ def sonuc_karti_bas(durum, baslik, icerik_listesi):
     
     tolerans_notu = ""
     if "UYGUN" in durum:
-        tolerans_notu = f"<p style='color: {yazi_renk}; font-size: 0.7em; font-weight: bold; margin-top: 10px;'>ℹ️ Girilen değer +/- %10 yasal tolerans sınırları içerisindedir.</p>"
+        tolerans_notu = f"""
+        <div style='margin-top: 15px; border-top: 1px dashed {border_renk}; padding-top: 10px;'>
+            <p style='color: {yazi_renk}; font-size: 0.75em; font-weight: bold; font-style: italic; margin: 0;'>
+            ℹ️ Girilen değer +/- %10 yasal tolerans sınırları içerisindedir.
+            </p>
+        </div>
+        """
 
     html = f"""
     <div style="background-color: {bg_renk}; padding: 20px; border-radius: 12px; border-left: 8px solid {border_renk}; margin-top: 20px;">
