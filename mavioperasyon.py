@@ -98,7 +98,7 @@ if islem == "Ardiye Hesaplama":
             kg = st.number_input("Net Miktar (KG)", min_value=0.0, step=100.0)
         with col2:
             d = st.number_input("Yoğunluk (Density)", min_value=0.01, value=0.8124, format="%.4f")
-        hacim_lt = kg / d if d > 0 else 0
+        hacim_lt = kg_input / d_input if d_input > 0 else 0
     else:
         with col1:
             hacim_lt = st.number_input("Toplam Hacim (Litre)", min_value=0.0, step=100.0)
@@ -107,7 +107,7 @@ if islem == "Ardiye Hesaplama":
             st.number_input("Yoğunluk (Density)", min_value=0.00, value=0.00, format="%.4f", disabled=True, help="Litre girişinde yoğunluk hesaplamaya dahil edilmez.")
 
     if st.button("HESAPLA", use_container_width=True):
-        m3 = (kg / d) / 1000
+        m3 = hacim_lt / 1000
         carpan = 13 if antrepo == "İzgin Antrepo" else 9
         toplam = m3 * carpan
 
