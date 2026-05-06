@@ -122,7 +122,7 @@ elif "Çevirme" in islem:
     with col1:
         miktar = st.number_input("Miktar", min_value=0.0)
     with col2:
-        d = st.number_input("Yoğunluk", min_value=0.01, value=0.80)
+        d = st.number_input("Yoğunluk", min_value=0.01, value=0.7930, format="%.4f")
 
     if st.button("HIZLI ÇEVİR", use_container_width=True):
         sonuc = miktar / d if "KG -> LT" in islem else miktar * d
@@ -135,7 +135,7 @@ elif islem == "Yoğunluk Hesaplama":
     with col1:
         kg_deger = st.number_input("Toplam Ağırlık (KG)", min_value=0.0, step=1.0)
     with col2:
-        lt_deger = st.number_input("Toplam Hacim (LT)", min_value=0.01, step=1.0) # 0'a bölme hatası olmasın diye 0.01
+        lt_deger = st.number_input("Toplam Hacim (LT)", min_value=0.01, step=1.0)
 
     if st.button("YOĞUNLUĞU HESAPLA", use_container_width=True):
         if lt_deger > 0:
