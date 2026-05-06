@@ -53,6 +53,9 @@ def sonuc_karti_bas(durum, baslik, icerik_listesi):
     bg_renk = "#d1fae5" if "UYGUN" in durum else "#fee2e2"
     border_renk = "#059669" if "UYGUN" in durum else "#dc2626"
     yazi_renk = "#065f46" if "UYGUN" in durum else "#991b1b"
+    tolerans_notu = ""
+    if "UYGUN" in durum:
+        tolerans_notu = f"<p style='color: {yazi_renk}; font-size: 0.9em; font-weight: bold; margin-top: 10px;'>ℹ️ Girilen değer +/- %10 yasal tolerans sınırları içerisindedir.</p>"
 
     html = f"""
     <div style="background-color: {bg_renk}; padding: 20px; border-radius: 12px; border-left: 8px solid {border_renk}; margin-top: 20px;">
