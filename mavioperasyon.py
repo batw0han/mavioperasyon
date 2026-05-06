@@ -66,7 +66,7 @@ def sonuc_karti_bas(durum, baslik, icerik_listesi):
     for item in icerik_listesi:
         html += f"<li style='color: #1f2937; margin-bottom: 5px;'><b>{item['label']}:</b> {item['value']}</li>"
 
-    html += "</ul></div>"
+    html += f"</ul>{tolerans_notu}</div>"
     st.markdown(html, unsafe_allow_html=True)
 
 
