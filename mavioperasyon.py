@@ -98,7 +98,7 @@ if giris_tipi == "Kilogram (KG)":
         with col2:
             d = st.number_input("Yoğunluk (Density)", min_value=0.01, value=0.8124, format="%.4f")
         hacim_lt = kg / d if d > 0 else 0
-    else:
+else:
         with col1:
             hacim_lt = st.number_input("Toplam Hacim (Litre)", min_value=0.0, step=100.0)
         # Litre seçilirse yoğunluğa gerek kalmıyor, col2 boş kalabilir veya bilgi notu yazılabilir.
