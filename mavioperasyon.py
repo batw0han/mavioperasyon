@@ -92,6 +92,7 @@ if islem == "Ardiye Hesaplama":
     # LT VEYA KG. SEÇİMİ:
     giris_tipi = st.segmented_control("Hesaplama Bazı:", ["Kilogram (KG)", "Litre (LT)"], default="Kilogram (KG)")
     col1, col2 = st.columns(2)
+    hacim_lt = 0.0
     if giris_tipi == "Kilogram (KG)":
         with col1:
             kg = st.number_input("Net Miktar (KG)", min_value=0.0, step=100.0)
