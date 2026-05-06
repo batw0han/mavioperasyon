@@ -17,9 +17,7 @@ def get_image_base64(file_path):
         return base64.b64encode(img_file.read()).decode()
 
 
-# Logo görüntüleme mantığı
 try:
-    # logo.ico dosyanı otomatik olarak gösterir
     if os.path.exists("logo.png"):
         st.markdown(
             f"""
@@ -102,7 +100,7 @@ if islem == "Ardiye Hesaplama":
         carpan = 13 if antrepo == "İzgin Antrepo" else 9
         toplam = m3 * carpan
 
-        st.markdown("### 📊 Analiz Özeti")
+        st.markdown("### 📊 İşlem Sonucu")
         c1, c2 = st.columns(2)
         c1.metric("Toplam Hacim", f"{m3:.3f} m³")
         c2.metric("Toplam Bedel", f"{toplam:.2f} $", delta=f"{antrepo} Tarifesi")
