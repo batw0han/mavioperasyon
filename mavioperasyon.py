@@ -81,6 +81,7 @@ islem = st.selectbox(
         "Ardiye Hesaplama",
         "KG -> LT Çevirme",
         "LT -> KG Çevirme",
+        "Yoğunluk Hesaplama",
         "Denatürasyon Hesaplama (Yeni Sipariş)",
         "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"
     ]
@@ -127,6 +128,27 @@ elif "Çevirme" in islem:
         sonuc = miktar / d if "KG -> LT" in islem else miktar * d
         birim = "LT" if "KG -> LT" in islem else "KG"
         st.metric(label="Dönüştürülen Miktar", value=f"{sonuc:.2f} {birim}")
+
+elif islem == "Yoğunluk Hesaplama":
+    st.markdown("### 🧪 Yoğunluk (Density) Analizi")
+    col1, col2 = st.columns(2)
+    with col1:
+        kg_deger = st.number_input("Toplam Ağırlık (KG)", min_value=0.0, step=1.0)
+    with col2:
+        lt_deger = st.number_input("Toplam Hacim (LT)", min_value=0.01, step=1.0) # 0'a bölme hatası olmasın diye 0.01
+
+    if st.button("YOĞUNLUĞU HESAPLA", use_container_width=True):
+        if lt_deger > 0:
+            yogunluk = kg_deger / lt_deger
+            st.markdown("---")
+            st.metric(label="Hesaplanan Yoğunluk (g/cm³)", value=f"{yogunluk:.4f}")
+            
+            if 0.70 <= yogunluk <= 1.20:
+                st.success(f"ℹ️ Standart sıvı kimyasal aralığında bir değer tespit edildi.")
+            else:
+                st.warning(f"⚠️ Dikkat: Bu yoğunluk değeri alışılmışın dışında (Çok ağır veya çok hafif).")
+        else:
+            st.error("Hacim (LT) değeri 0 olamaz!")
 
 elif islem == "Denatürasyon Hesaplama (Yeni Sipariş)":
     tip = st.selectbox("Reçete Tipi:", ["K Tipi", "D Tipi", "Metanol Denatürasyonu"])
