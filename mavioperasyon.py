@@ -103,7 +103,7 @@ if islem == "Ardiye Hesaplama":
             hacim_lt = st.number_input("Toplam Hacim (Litre)", min_value=0.0, step=100.0)
         # Litre seçilirse yoğunluğa gerek kalmıyor, col2 boş kalabilir veya bilgi notu yazılabilir.
         with col2:
-            st.info("")
+            st.number_input("Yoğunluk (Density)", min_value=0, value=0, format="%.4f", disabled=True, help="Litre girişinde yoğunluk hesaplamaya dahil edilmez.")
 
     if st.button("HESAPLA", use_container_width=True):
         m3 = (kg / d) / 1000
