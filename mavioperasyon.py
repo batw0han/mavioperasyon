@@ -368,7 +368,10 @@ elif islem == "Kaydedilen İşlemler":
 
             st.divider()
 
+            # --- BUTON YERLEŞİMLERİ ---
+
             col_ex1, col_ex2 = st.columns([1, 1])
+            
             with col_ex1:
                 excel_data = to_excel(df)
                 st.download_button(
@@ -380,10 +383,10 @@ elif islem == "Kaydedilen İşlemler":
                 )
             
             with col_ex2:
-            if st.button("🔴 Arşivi Temizle", use_container_width=True):
-                os.remove(DB_FILE)
-                st.warning("Arşiv başarıyla temizlendi.")
-                st.rerun()
+                if st.button("🔴 Arşivi Temizle", use_container_width=True):
+                    os.remove(DB_FILE)
+                    st.warning("Arşiv başarıyla temizlendi.")
+                    st.rerun()
         else:
             st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
 
