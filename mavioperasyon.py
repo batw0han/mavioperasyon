@@ -147,27 +147,8 @@ islem = st.selectbox(
         "Denatürasyon Hesaplama (Yeni Sipariş)",
         "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)",
         "Kaydedilen İşlemler"
-    ],
-    index=None,
-    placeholder="Bir işlem seçiniz..." #
+    ]
 )
-if not islem:
-    st.write("") 
-    st.write("")
-    
-    try:
-        if os.path.exists("logo.png"):
-            st.markdown(
-                f"""
-                <div style="text-align: center; margin-top: 50px;">
-                    <img src="data:image/png;base64,{get_image_base64('logo.png')}" width="400">
-                    <h2 style='color: #2596BE; font-family: sans-serif;'>Operasyon Yönetim Paneli</h2>
-                    <p style='color: #64748B;'>Devam etmek için yukarıdaki menüden bir işlem seçin.</p>
-                </div>
-                """, unsafe_allow_html=True
-            )
-    except:
-        st.info("Hoş geldiniz! Lütfen yukarıdan bir işlem seçerek başlayın.")
 
 # --- İŞLEM MANTIKLARI ---
 if islem == "Ardiye Hesaplama":
