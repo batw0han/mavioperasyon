@@ -275,6 +275,8 @@ elif islem == "Denatürasyon Hesaplama (Yeni Sipariş)":
     tip = st.selectbox("Reçete Tipi:", ["K Tipi", "D Tipi", "Metanol Denatürasyonu"])
     miktar = st.number_input("Saf Ürün Hacmi (LT):", min_value=0.0)
 
+    detay = ""
+
     if st.button("REÇETEYİ HAZIRLA", use_container_width=True):
         carpan = miktar / 100
         st.markdown("### 📝 Hazırlanacak Reçete")
