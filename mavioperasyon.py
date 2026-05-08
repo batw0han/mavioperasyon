@@ -39,7 +39,7 @@ with st.sidebar:
                 st.warning("Lütfen şifrenizi giriniz.")
     else:
         st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
-        st.divier()
+        st.divider()
 
         if st.sidebar.button("📋 Kayıtlı İşlemleri Görüntüle", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kaydedilen İşlemler"
