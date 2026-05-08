@@ -24,15 +24,19 @@ SIFRE_REHBERI = {
 with st.sidebar:
     st.markdown("### 🔐 Personel Girişi")
     if not st.session_state.authenticated:
-        sifre = st.text_input("Giriş Şifresi:", type="password")
+        sifre_giris = st.text_input("Giriş Şifresi:", type="password") 
+        
         if st.button("Giriş Yap"):
-            if sifre_giris in SIFRE_REHBERI:
-                st.session_state.authenticated = True
-                st.session_state.user_name = SIFRE_REHBERI[sifre_giris]
-                st.success(f"Hoş geldin, {st.session_state.user_name}!")
-                st.rerun()
+            if sifre_giris:
+                if sifre_giris in SIFRE_REHBERI:
+                    st.session_state.authenticated = True
+                    st.session_state.user_name = SIFRE_REHBERI[sifre_giris]
+                    st.success(f"Hoş geldin, {st.session_state.user_name}!")
+                    st.rerun()
+                else:
+                    st.error("Hatalı veya Geçersiz Şifre!")
             else:
-                st.error("Hatalı veya Geçersiz Şifre!")
+                st.warning("Lütfen şifrenizi giriniz.")
     else:
         st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         if st.button("Güvenli Çıkış"):
