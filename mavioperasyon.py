@@ -281,11 +281,11 @@ elif islem == "Denatürasyon Hesaplama (Yeni Sipariş)":
         carpan = miktar / 100
         st.markdown("### 📝 Hazırlanacak Reçete")
         if tip == "K Tipi":
-            st.warning(f"D. Benzoat: {0.8 * carpan:.2f} gr | TBA: {78 * carpan:.2f} gr")
+            detay = f"D. Benzoat: {0.8 * carpan:.2f} gr | TBA: {78 * carpan:.2f} gr"
         elif tip == "D Tipi":
-            st.warning(f"IPA: {5 * carpan:.2f} kg | TBA: {78 * carpan:.2f} gr")
+            detay = f"IPA: {5 * carpan:.2f} kg | TBA: {78 * carpan:.2f} gr"
         else:
-            st.warning(f"D. Benzoat: {3 * carpan:.2f} gr")
+            detay = f"D. Benzoat: {3 * carpan:.2f} gr"
 
         st.warning(detay)
 
