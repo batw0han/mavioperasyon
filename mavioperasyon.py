@@ -8,25 +8,36 @@ import os
 # --- SESSION STATE BAŞLATMA ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "user_name" not in st.session_state:
+    st.session_state.user_name = ""
 if "sayfa_yonetimi" not in st.session_state:
     st.session_state.sayfa_yonetimi = "Ana Sayfa"
 
-# --- GİRİŞ PANELİ (SIDEBAR'DA GÖRÜNÜR) ---
+# --- ŞİFRE VE KULLANICI EŞLEŞTİRMESİ ---
+SIFRE_REHBERI = {
+    "Mavi2026": "Batuhan",
+    "ErcanMavi26": "Ercan",
+    "MustiMavi26": "Mustafa"
+}
+
+# --- GİRİŞ PANELİ ---
 with st.sidebar:
     st.markdown("### 🔐 Personel Girişi")
     if not st.session_state.authenticated:
         sifre = st.text_input("Giriş Şifresi:", type="password")
         if st.button("Giriş Yap"):
-            if sifre == "Mavi2026": # Şifren kalsın kanka
+            if sifre_giris in SIFRE_REHBERI:
                 st.session_state.authenticated = True
-                st.success("Giriş Başarılı!")
+                st.session_state.user_name = SIFRE_REHBERI[sifre_giris]
+                st.success(f"Hoş geldin, {st.session_state.user_name}!")
                 st.rerun()
             else:
-                st.error("Hatalı Şifre!")
+                st.error("Hatalı veya Geçersiz Şifre!")
     else:
-        st.success("✅ Oturum Açık")
+        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         if st.button("Güvenli Çıkış"):
             st.session_state.authenticated = False
+            st.session_state.user_name = ""
             st.rerun()
 
 # --- SAYFA AYARLARI ---
@@ -38,14 +49,15 @@ st.set_page_config(
 
 DB_FILE = "operasyon_kayitlari.csv"
 
-def kaydet(islem_adi, kategori, girdiler, sonuc):
+def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi):
     yeni_kayit = {
         "Kaydedilen Ad": islem_adi,
         "İşlem Kategorisi": kategori,
         "Girdiler": girdiler,
         "Sonuç": sonuc,
         "Tarih": datetime.now().strftime("%d.%m.%Y"),
-        "Saat": datetime.now().strftime("%H:%M")
+        "Saat": datetime.now().strftime("%H:%M"),
+        "İşlemi Yapan": personel_adi
     }
     
     if os.path.exists(DB_FILE):
@@ -185,21 +197,27 @@ if islem == "Ardiye Hesaplama":
     if "son_hesaplama" in st.session_state and islem == "Ardiye Hesaplama":
         st.divider()
         with st.expander("💾 Bu İşlemi Arşive Kaydet"):
-            kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: Farmed 10 Araç Metanol")
+            kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: 10 Araç Metanol")
             btn_col1, btn_col2, btn_col3 = st.columns([1, 2, 1])
             with btn_col2:
-                if st.button("KAYDI ONAYLA"):
+                if st.button("KAYDI ONAYLA", use_container_width=True):
                     if not st.session_state.authenticated:
-                        st.error("❌ Yetkisiz İşlem! Kayıt yapabilmek için giriş yapmalısınız.")
+                        st.error("❌ Yetkisiz İşlem! Lütfen önce personel şifrenizle giriş yapınız.")
                     else:
                         if kayit_ismi:
                             data = st.session_state.son_hesaplama
-                            kaydet(kayit_ismi, data['kategori'], data['girdi'], data['sonuc'])
-                            st.success(f"'{kayit_ismi}' başarıyla kaydedildi!")
+                            kaydet(
+                                kayit_ismi, 
+                                data['kategori'], 
+                                data['girdi'], 
+                                data['sonuc'], 
+                                st.session_state.user_name
+                            )
+                            st.success(f"İşlem {st.session_state.user_name} adına başarıyla kaydedildi!")
                             del st.session_state.son_hesaplama
                             st.rerun()
                         else:
-                            st.warning("Lütfen işlem için bir isim belirleyiniz.")
+                            st.warning("Lütfen işlem için bir isim giriniz.")
 
 elif "Çevirme" in islem:
     col1, col2 = st.columns(2)
