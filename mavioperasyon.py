@@ -5,22 +5,29 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# --- GİRİŞ KONTROLÜ ---
+# --- SESSION STATE BAŞLATMA ---
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "sayfa_yonetimi" not in st.session_state:
+    st.session_state.sayfa_yonetimi = "Ana Sayfa"
 
-def check_login():
+# --- GİRİŞ PANELİ (SIDEBAR'DA GÖRÜNÜR) ---
+with st.sidebar:
+    st.markdown("### 🔐 Personel Girişi")
     if not st.session_state.authenticated:
-        with st.sidebar:
-            st.markdown("### 🔐 Personel Girişi")
-            sifre = st.text_input("Giriş Şifresi:", type="password")
-            if st.button("Giriş Yap"):
-                if sifre == "Mavi2026":
-                    st.session_state.authenticated = True
-                    st.success("Giriş Başarılı!")
-                    st.rerun()
-                else:
-                    st.error("Hatalı Şifre!")
+        sifre = st.text_input("Giriş Şifresi:", type="password")
+        if st.button("Giriş Yap"):
+            if sifre == "Mavi2026": # Şifren kalsın kanka
+                st.session_state.authenticated = True
+                st.success("Giriş Başarılı!")
+                st.rerun()
+            else:
+                st.error("Hatalı Şifre!")
+    else:
+        st.success("✅ Oturum Açık")
+        if st.button("Güvenli Çıkış"):
+            st.session_state.authenticated = False
+            st.rerun()
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
