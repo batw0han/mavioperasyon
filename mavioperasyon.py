@@ -158,8 +158,10 @@ if islem == "Ardiye Hesaplama":
         st.divider()
         with st.expander("💾 Bu İşlemi Arşive Kaydet"):
             kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: Farmed 10 Araç Metanol")
-            
 
+                        # Butonu küçültmek için kolon kullanıyoruz
+            sol, orta, sag = st.columns([1, 2, 1]) 
+            with orta: # Buton ortadaki küçük kolonda çıkacak
                 if st.button("KAYDI ONAYLA"):
                     if kayit_ismi:
                         d = st.session_state.son_hesaplama
