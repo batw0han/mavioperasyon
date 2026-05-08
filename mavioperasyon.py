@@ -140,22 +140,26 @@ if islem == "Ardiye Hesaplama":
         c1.metric("Toplam Hacim", f"{m3:.3f} m³")
         c2.metric("Toplam Bedel", f"{toplam:.2f} $", delta=f"{antrepo} Tarifesi")
 
+        # --- KAYIT BÖLÜMÜ ---
+        # Girdi notunu burada dinamik oluşturuyoruz
+        if giris_tipi == "Kilogram (KG)":
+            girdi_metni = f"{kg_input:.2f} KG (Yoğunluk: {d_input:.4f})"
+        else:
+            girdi_metni = f"{hacim_lt:.2f} LT"
 
         st.session_state.son_hesaplama = {
             "kategori": "Ardiye Hesaplama",
-            "girdi": f"{giris_tipi}: {hacim_lt} LT",
+            "girdi": girdi_metni,
             "sonuc": f"{m3:.3f} m3 / {toplam:.2f} $"
         }
 
-    # Hesaplama yapıldıysa Kaydetme formunu göster
+    # KAYDETME FORMU
     if "son_hesaplama" in st.session_state and islem == "Ardiye Hesaplama":
         st.divider()
         with st.expander("💾 Bu İşlemi Arşive Kaydet"):
             kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: Farmed 10 Araç Metanol")
             
-            # Butonu küçültmek için kolon kullanıyoruz
-            sol, orta, sag = st.columns([1, 2, 1]) 
-            with orta: # Buton ortadaki küçük kolonda çıkacak
+
                 if st.button("KAYDI ONAYLA"):
                     if kayit_ismi:
                         d = st.session_state.son_hesaplama
