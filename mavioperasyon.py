@@ -5,6 +5,23 @@ import pandas as pd
 from datetime import datetime
 import os
 
+# --- GİRİŞ KONTROLÜ ---
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+def check_login():
+    if not st.session_state.authenticated:
+        with st.sidebar:
+            st.markdown("### 🔐 Personel Girişi")
+            sifre = st.text_input("Giriş Şifresi:", type="password")
+            if st.button("Giriş Yap"):
+                if sifre == "Mavi2026":
+                    st.session_state.authenticated = True
+                    st.success("Giriş Başarılı!")
+                    st.rerun()
+                else:
+                    st.error("Hatalı Şifre!")
+
 # --- SAYFA AYARLARI ---
 st.set_page_config(
     page_title="Mavi Kimya | Operasyon Paneli",
@@ -165,14 +182,17 @@ if islem == "Ardiye Hesaplama":
             btn_col1, btn_col2, btn_col3 = st.columns([1, 2, 1])
             with btn_col2:
                 if st.button("KAYDI ONAYLA"):
-                    if kayit_ismi:
-                        data = st.session_state.son_hesaplama
-                        kaydet(kayit_ismi, data['kategori'], data['girdi'], data['sonuc'])
-                        st.success(f"'{kayit_ismi}' başarıyla kaydedildi!")
-                        del st.session_state.son_hesaplama
-                        st.rerun()
+                    if not st.session_state.authenticated:
+                        st.error("❌ Yetkisiz İşlem! Kayıt yapabilmek için giriş yapmalısınız.")
                     else:
-                        st.warning("Lütfen işlem için bir isim belirleyiniz.")
+                        if kayit_ismi:
+                            data = st.session_state.son_hesaplama
+                            kaydet(kayit_ismi, data['kategori'], data['girdi'], data['sonuc'])
+                            st.success(f"'{kayit_ismi}' başarıyla kaydedildi!")
+                            del st.session_state.son_hesaplama
+                            st.rerun()
+                        else:
+                            st.warning("Lütfen işlem için bir isim belirleyiniz.")
 
 elif "Çevirme" in islem:
     col1, col2 = st.columns(2)
@@ -247,16 +267,20 @@ elif islem == "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)":
             ])
 
 elif islem == "Kaydedilen İşlemler":
-    st.markdown("### 📜 Geçmiş Operasyon Kayıtları")
-    if os.path.exists(DB_FILE):
-        df = pd.read_csv(DB_FILE)
-        st.dataframe(df, use_container_width=True)
-        
-        if st.button("Tüm Kayıtları Temizle"):
-            os.remove(DB_FILE)
-            st.rerun()
+    if not st.session_state.authenticated:
+        st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
     else:
-        st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
+        st.markdown("### 📜 Geçmiş Operasyon Kayıtları")
+        if os.path.exists(DB_FILE):
+            df = pd.read_csv(DB_FILE)
+            st.dataframe(df, use_container_width=True)
+            
+            if st.button("🔴 Tüm Kayıtları Temizle (Geri Dönülemez)"):
+                os.remove(DB_FILE)
+                st.warning("Arşiv başarıyla temizlendi.")
+                st.rerun()
+        else:
+            st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
 
 st.write("")
 st.caption("© 2026 Mavi Plastik Kimya San ve Tic. A.Ş. | Batuhan KILIÇ")
