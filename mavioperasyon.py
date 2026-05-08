@@ -49,6 +49,10 @@ with st.sidebar:
             if st.sidebar.button("Ana Menüye Dön", use_container_width=True):
                 st.session_state.sayfa_yonetimi = "Ana Sayfa"
                 st.rerun()
+
+        if st.sidebar.button("Yeni Siparis Olustur", use_container_width=True):
+            st.session_state.sayfa_yonetimi = "Yeni Sipariş"
+            st.rerun()
         
         if st.button("Güvenli Çıkış"):
             st.session_state.authenticated = False
@@ -389,6 +393,93 @@ elif islem == "Kaydedilen İşlemler":
                     st.rerun()
         else:
             st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
+
+elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
+    st.markdown("### 📦 Yeni Sipariş Giriş Paneli")
+    
+    # --- 1. TEMEL BİLGİLER ---
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        islem_tipi = st.radio("İşlem Tipi:", ["İthalat", "İhracat"], horizontal=True)
+    with col2:
+        doviz = st.selectbox("Para Birimi:", ["USD ($)", "EUR (€)", "GBP (£)", "TL"])
+    with col3:
+        incoterm = st.selectbox("Tesim Şekli (Incoterm):", ["EXW", "FCA", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"])
+
+    # --- 2. ÜRÜN SEÇİMİ VE YENİ ÜRÜN EKLEME ---
+    st.divider()
+    # Örnek ürün listesi (Bunu session_state'e bağlayıp kalıcı yapabiliriz ileride)
+    if "urun_listesi" not in st.session_state:
+        st.session_state.urun_listesi = ["Metanol", "Etil Asetat", "Glikol", "İzopropil Alkol"]
+
+    col_u1, col_u2 = st.columns([3, 1])
+    with col_u2:
+        yeni_urun_check = st.checkbox("Yeni Ürün Ekle")
+    
+    with col_u1:
+        if yeni_urun_check:
+            urun_adi = st.text_input("Yeni Ürün Adını Yazınız:")
+            if st.button("Listeye Ekle"):
+                if urun_adi and urun_adi not in st.session_state.urun_listesi:
+                    st.session_state.urun_listesi.append(urun_adi)
+                    st.success(f"{urun_adi} listeye eklendi!")
+                    st.rerun()
+        else:
+            urun_secimi = st.selectbox("Ürün Seçiniz:", st.session_state.urun_listesi)
+
+    # --- 3. MİKTAR VE LOJİSTİK ---
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        miktar = st.number_input("Ürün Miktarı:", min_value=0.0)
+        birim = st.segmented_control("Birim:", ["KG", "LT"], default="KG")
+    with col_m2:
+        liman = st.selectbox("Liman:", ["Ambarlı", "Körfez", "Derince", "Zeytinburnu", "Mersin", "İzmir"])
+        isletme = st.selectbox("Liman İşletmesi:", ["Poliport", "Limaş", "Zeyport", "Marport", "Evyap", "Kumport"])
+
+    col_l1, col_l2, col_l3 = st.columns(3)
+    with col_l1:
+        antrepo = st.selectbox("Antrepo:", ["İzgin", "Koruma", "Diğer"])
+    with col_l2:
+        ardiye_fiyat = st.number_input("Ardiye Günlük Fiyat ($/m³):", min_value=0.0)
+    with col_l3:
+        # Lojistik bize aitse navlun alanı açılır
+        navlun_lazim = ["EXW", "FCA", "FOB"]
+        if incoterm in navlun_lazim:
+            navlun = st.number_input("Navlun Fiyatı:", min_value=0.0)
+        else:
+            navlun = 0.0
+
+    # --- 4. FİNANSAL HESAPLAMALAR ---
+    st.divider()
+    st.markdown("#### 💰 Finansal Detaylar")
+    col_f1, col_f2 = st.columns(2)
+    
+    with col_f1:
+        toplam_tutar = st.number_input("Ürün Toplam Tutarı:", min_value=0.0)
+        birim_fiyat = 0.0
+        if miktar > 0:
+            birim_fiyat = toplam_tutar / miktar
+            st.caption(f"Hesaplanan Birim Fiyat: {birim_fiyat:.4f}")
+    
+    with col_f2:
+        odenen_miktar = st.number_input("Ödenen Miktar:", min_value=0.0)
+        kalan_borc = toplam_tutar - odenen_miktar
+        if kalan_borc > 0:
+            st.error(f"Kalan Ödenecek: {kalan_borc:.2f}")
+        else:
+            st.success("Ödeme Tamamlandı ✅")
+
+    col_v1, col_v2 = st.columns(2)
+    with col_v1:
+        proforma_vade = st.date_input("Proforma Vade Tarihi")
+    with col_v2:
+        liman_masraf = st.number_input("Liman Masrafları (Ödenen):", min_value=0.0)
+
+    # --- 5. KAYDET ---
+    if st.button("SİPARİŞİ SİSTEME KAYDET", use_container_width=True):
+        # Burada kaydet fonksiyonunu çağıracağız (CSV'ye farklı bir kategoriyle)
+        st.balloons()
+        st.success("Sipariş başarıyla oluşturuldu! Mevcut siparişler ekranından takip edebilirsiniz.")
 
 st.write("")
 st.caption("© 2026 Mavi Plastik Kimya San ve Tic. A.Ş. | Batuhan KILIÇ")
