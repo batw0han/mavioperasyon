@@ -136,18 +136,21 @@ def sonuc_karti_bas(durum, baslik, icerik_listesi):
 
 
 # --- ANA MENÜ ---
-islem = st.selectbox(
-    "YAPILACAK İŞLEM SEÇİNİZ:",
-    [
-        "Ardiye Hesaplama",
-        "KG -> LT Çevirme",
-        "LT -> KG Çevirme",
-        "Yoğunluk Hesaplama",
-        "Denatürasyon Hesaplama (Yeni Sipariş)",
-        "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)",
-        "Kaydedilen İşlemler"
-    ]
-)
+with st.sidebar:
+    st.divider()
+    islem = st.selectbox(
+        "📂 MENÜ",
+        [
+            "Ardiye Hesaplama",
+            "KG -> LT Çevirme",
+            "LT -> KG Çevirme",
+            "Yoğunluk Hesaplama",
+            "Denatürasyon Hesaplama (Yeni Sipariş)",
+            "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)",
+            "Kaydedilen İşlemler"
+        ]
+    )
+    st.divider()
 
 # --- İŞLEM MANTIKLARI ---
 if islem == "Ardiye Hesaplama":
