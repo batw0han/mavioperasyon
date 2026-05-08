@@ -291,7 +291,7 @@ elif islem == "Denatürasyon Hesaplama (Yeni Sipariş)":
 
         # --- KAYIT HAZIRLIĞI ---
         st.session_state.son_hesaplama = {
-            "kategori": "Denatürasyon (Yeni)",
+            "kategori": "Denatürasyon Hesabı",
             "girdi": f"{miktar} LT {tip}",
             "sonuc": detay
         }
