@@ -105,7 +105,7 @@ islem = st.selectbox(
         "Yoğunluk Hesaplama",
         "Denatürasyon Hesaplama (Yeni Sipariş)",
         "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"
-        "---Kaydedilen İşlemler---"
+        "Kaydedilen İşlemler"
     ]
 )
 
@@ -128,19 +128,7 @@ if islem == "Ardiye Hesaplama":
         # Litre seçilirse yoğunluğa gerek kalmıyor, col2 boş kalabilir veya bilgi notu yazılabilir.
         with col2:
             st.number_input("Yoğunluk (Density)", min_value=0.00, value=0.00, format="%.4f", disabled=True, help="Litre girişinde yoğunluk hesaplamaya dahil edilmez.")
-
-    st.divider()
-    with st.expander("💾 Bu İşlemi Arşive Kaydet"):
-        kayit_ismi = st.text_input("İşlem için bir isim girin:", placeholder="Örn: Farmed 10 Araç Metanol")
-        if st.button("ONAYLA VE KAYDET"):
-            if kayit_ismi:
-                girdi_notu = f"{giris_tipi}: {kg_input if giris_tipi=='Kilogram (KG)' else hacim_lt}, Yoğunluk: {d_input if giris_tipi=='Kilogram (KG)' else 'N/A'}"
-                sonuc_notu = f"{m3:.3f} m3 / {toplam:.2f} $"
-                
-                kaydet(kayit_ismi, "Ardiye Hesaplama", girdi_notu, sonuc_notu)
-                st.success(f"'{kayit_ismi}' başarıyla kaydedildi!")
-            else:
-                st.warning("Lütfen bir isim giriniz.")
+    
     
     if st.button("HESAPLA", use_container_width=True):
         m3 = hacim_lt / 1000
@@ -151,6 +139,32 @@ if islem == "Ardiye Hesaplama":
         c1, c2 = st.columns(2)
         c1.metric("Toplam Hacim", f"{m3:.3f} m³")
         c2.metric("Toplam Bedel", f"{toplam:.2f} $", delta=f"{antrepo} Tarifesi")
+
+
+        st.session_state.son_hesaplama = {
+            "kategori": "Ardiye Hesaplama",
+            "girdi": f"{giris_tipi}: {hacim_lt} LT",
+            "sonuc": f"{m3:.3f} m3 / {toplam:.2f} $"
+        }
+
+    # Hesaplama yapıldıysa Kaydetme formunu göster
+    if "son_hesaplama" in st.session_state and islem == "Ardiye Hesaplama":
+        st.divider()
+        with st.expander("💾 Bu İşlemi Arşive Kaydet"):
+            kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: Farmed 10 Araç Metanol")
+            
+            # Butonu küçültmek için kolon kullanıyoruz
+            sol, orta, sag = st.columns([1, 2, 1]) 
+            with orta: # Buton ortadaki küçük kolonda çıkacak
+                if st.button("KAYDI ONAYLA"):
+                    if kayit_ismi:
+                        d = st.session_state.son_hesaplama
+                        kaydet(kayit_ismi, d['kategori'], d['girdi'], d['sonuc'])
+                        st.success(f"'{kayit_ismi}' başarıyla kaydedildi!")
+                        # Kayıttan sonra hafızayı temizle (form kapansın diye)
+                        del st.session_state.son_hesaplama
+                    else:
+                        st.warning("Lütfen bir isim giriniz.")
 
 elif "Çevirme" in islem:
     col1, col2 = st.columns(2)
