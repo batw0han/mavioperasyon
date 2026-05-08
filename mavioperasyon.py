@@ -50,7 +50,7 @@ with st.sidebar:
                 st.session_state.sayfa_yonetimi = "Ana Sayfa"
                 st.rerun()
 
-        if st.sidebar.button("Yeni Siparis Olustur", use_container_width=True):
+        if st.sidebar.button("Yeni Sipariş Oluştur", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Yeni Sipariş"
             st.rerun()
         
