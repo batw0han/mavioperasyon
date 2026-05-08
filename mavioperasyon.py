@@ -41,16 +41,19 @@ with st.sidebar:
         st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         st.divider()
 
-        if st.sidebar.button("📋 Kayıtlı İşlemleri Görüntüle", use_container_width=True):
+        if st.sidebar.button("Kayıtlı İşlemleri Görüntüle", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kaydedilen İşlemler"
             st.rerun()
-
-        if st.sidebar.button("🏠 Ana Menüye Dön", use_container_width=True):
-            st.session_state.sayfa_yonetimi = "Ana Sayfa"
-            st.rerun()
+        
+        if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
+            if st.sidebar.button("Ana Menüye Dön", use_container_width=True):
+                st.session_state.sayfa_yonetimi = "Ana Sayfa"
+                st.rerun()
+        
         if st.button("Güvenli Çıkış"):
             st.session_state.authenticated = False
             st.session_state.user_name = ""
+            st.session_state.sayfa_yonetimi = "Ana Sayfa"
             st.rerun()
 
 # --- SAYFA AYARLARI ---
