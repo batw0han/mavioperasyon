@@ -145,6 +145,11 @@ def sonuc_karti_bas(durum, baslik, icerik_listesi):
 
 
 # --- ANA MENÜ ---
+if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
+    islem = "Kaydedilen İşlemler"
+    # Arşivdeyken en üste bir geri dönüş bilgisi
+    st.info("Şu an Arşiv kayıtlarını görüntülüyorsunuz. Menüye dönmek için sol taraftaki 'Ana Menüye Dön' butonuna basabilirsiniz.")
+else:
 
 islem = st.selectbox(
     "📂 MENÜ",
