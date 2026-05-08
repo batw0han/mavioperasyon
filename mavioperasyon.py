@@ -43,6 +43,13 @@ with st.sidebar:
             st.session_state.authenticated = False
             st.session_state.user_name = ""
             st.rerun()
+        if st.session_state.authenticated:
+        st.divider()
+        st.markdown("### 📂 Yönetim")
+        # Arşivi görüntüleme durumunu kontrol etmek için bir checkbox veya buton
+        arsiv_bak = st.checkbox("💾 Kayıtlı İşlemleri Görüntüle")
+    else:
+        arsiv_bak = False
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -145,8 +152,7 @@ islem = st.selectbox(
         "LT -> KG Çevirme",
         "Yoğunluk Hesaplama",
         "Denatürasyon Hesaplama (Yeni Sipariş)",
-        "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)",
-        "Kaydedilen İşlemler"
+        "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"
     ]
 )
 
