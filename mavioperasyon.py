@@ -105,7 +105,7 @@ islem = st.selectbox(
         "Yoğunluk Hesaplama",
         "Denatürasyon Hesaplama (Yeni Sipariş)",
         "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)",
-        "---Kaydedilen İşlemler---"
+        "Kaydedilen İşlemler"
     ]
 )
 
