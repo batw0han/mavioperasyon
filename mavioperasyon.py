@@ -112,65 +112,67 @@ islem = st.selectbox(
 # --- İŞLEM MANTIKLARI ---
 if islem == "Ardiye Hesaplama":
     antrepo = st.radio("Antrepo Seçin:", ["İzgin Antrepo", "Koruma Antrepo"], horizontal=True)
-    # LT VEYA KG. SEÇİMİ:
     giris_tipi = st.segmented_control("Hesaplama Bazı:", ["Kilogram (KG)", "Litre (LT)"], default="Kilogram (KG)")
+    
     col1, col2 = st.columns(2)
+    
+    # Değişkenlerin başlangıç değerleri
     hacim_lt = 0.0
+    kg_input = 0.0
+    lt_input = 0.0
+    d_input = 0.8124
+
     if giris_tipi == "Kilogram (KG)":
         with col1:
-            kg = st.number_input("Net Miktar (KG)", min_value=0.0, step=100.0)
+            kg_input = st.number_input("Net Miktar (KG)", min_value=0.0, step=100.0)
         with col2:
-            d = st.number_input("Yoğunluk (Density)", min_value=0.01, value=0.8124, format="%.4f")
-        hacim_lt = kg / d if d > 0 else 0
+            d_input = st.number_input("Yoğunluk (Density)", min_value=0.01, value=0.8124, format="%.4f")
+        hacim_lt = kg_input / d_input if d_input > 0 else 0
     else:
         with col1:
-            hacim_lt = st.number_input("Toplam Hacim (Litre)", min_value=0.0, step=100.0)
-        # Litre seçilirse yoğunluğa gerek kalmıyor, col2 boş kalabilir veya bilgi notu yazılabilir.
+            lt_input = st.number_input("Toplam Hacim (Litre)", min_value=0.0, step=100.0)
+            hacim_lt = lt_input
         with col2:
-            st.number_input("Yoğunluk (Density)", min_value=0.00, value=0.00, format="%.4f", disabled=True, help="Litre girişinde yoğunluk hesaplamaya dahil edilmez.")
-    
-    
+            st.number_input("Yoğunluk (Density)", value=0.00, format="%.4f", disabled=True)
+
     if st.button("HESAPLA", use_container_width=True):
         m3 = hacim_lt / 1000
         carpan = 13 if antrepo == "İzgin Antrepo" else 9
         toplam = m3 * carpan
 
         st.markdown("### 📊 İşlem Sonucu")
-        c1, c2 = st.columns(2)
-        c1.metric("Toplam Hacim", f"{m3:.3f} m³")
-        c2.metric("Toplam Bedel", f"{toplam:.2f} $", delta=f"{antrepo} Tarifesi")
+        res_c1, res_c2 = st.columns(2)
+        res_c1.metric("Toplam Hacim", f"{m3:.3f} m³")
+        res_c2.metric("Toplam Bedel", f"{toplam:.2f} $", delta=f"{antrepo} Tarifesi")
 
-        # --- KAYIT BÖLÜMÜ ---
-        # Girdi notunu burada dinamik oluşturuyoruz
+        #---KAYIT BÖLÜMÜ---
         if giris_tipi == "Kilogram (KG)":
-            girdi_metni = f"{kg_input:.2f} KG (Yoğunluk: {d_input:.4f})"
+            girdi_notu = f"{kg_input} KG"
         else:
-            girdi_metni = f"{hacim_lt:.2f} LT"
+            girdi_notu = f"{lt_input} LT"
 
         st.session_state.son_hesaplama = {
             "kategori": "Ardiye Hesaplama",
-            "girdi": girdi_metni,
-            "sonuc": f"{m3:.3f} m3 / {toplam:.2f} $"
+            "girdi": girdi_notu,
+            "sonuc": f"{m3:.3f} m³ / {toplam:.2f} $"
         }
 
-    # KAYDETME FORMU
+    # Kayıt Formu Yerleşimi
     if "son_hesaplama" in st.session_state and islem == "Ardiye Hesaplama":
         st.divider()
         with st.expander("💾 Bu İşlemi Arşive Kaydet"):
             kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: Farmed 10 Araç Metanol")
-
-                        # Butonu küçültmek için kolon kullanıyoruz
-            sol, orta, sag = st.columns([1, 2, 1]) 
-            with orta: # Buton ortadaki küçük kolonda çıkacak
+            btn_col1, btn_col2, btn_col3 = st.columns([1, 2, 1])
+            with btn_col2:
                 if st.button("KAYDI ONAYLA"):
                     if kayit_ismi:
-                        d = st.session_state.son_hesaplama
-                        kaydet(kayit_ismi, d['kategori'], d['girdi'], d['sonuc'])
+                        data = st.session_state.son_hesaplama
+                        kaydet(kayit_ismi, data['kategori'], data['girdi'], data['sonuc'])
                         st.success(f"'{kayit_ismi}' başarıyla kaydedildi!")
-                        # Kayıttan sonra hafızayı temizle (form kapansın diye)
                         del st.session_state.son_hesaplama
+                        st.rerun()
                     else:
-                        st.warning("Lütfen bir isim giriniz.")
+                        st.warning("Lütfen işlem için bir isim belirleyiniz.")
 
 elif "Çevirme" in islem:
     col1, col2 = st.columns(2)
