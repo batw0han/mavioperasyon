@@ -150,18 +150,17 @@ if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
     # Arşivdeyken en üste bir geri dönüş bilgisi
     st.info("Şu an Arşiv kayıtlarını görüntülüyorsunuz. Menüye dönmek için sol taraftaki 'Ana Menüye Dön' butonuna basabilirsiniz.")
 else:
-
-islem = st.selectbox(
-    "📂 MENÜ",
-    [
-        "Ardiye Hesaplama",
-        "KG -> LT Çevirme",
-        "LT -> KG Çevirme",
-        "Yoğunluk Hesaplama",
-        "Denatürasyon Hesaplama (Yeni Sipariş)",
-        "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"
-    ]
-)
+    islem = st.selectbox(
+        "📂 MENÜ",
+        [
+            "Ardiye Hesaplama",
+            "KG -> LT Çevirme",
+            "LT -> KG Çevirme",
+            "Yoğunluk Hesaplama",
+            "Denatürasyon Hesaplama (Yeni Sipariş)",
+            "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"
+        ]
+    )
 
 # --- İŞLEM MANTIKLARI ---
 if islem == "Ardiye Hesaplama":
