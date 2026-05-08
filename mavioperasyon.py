@@ -147,6 +147,15 @@ def sonuc_karti_bas(durum, baslik, icerik_listesi):
     st.markdown(html, unsafe_allow_html=True)
 
 
+def to_excel(df):
+    import io
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='log')
+    processed_data = output.getvalue()
+    return processed_data
+
+
 # --- ANA MENÜ ---
 if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
     islem = "Kaydedilen İşlemler"
@@ -352,12 +361,26 @@ elif islem == "Kaydedilen İşlemler":
     if not st.session_state.authenticated:
         st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
     else:
-        st.markdown("### 📜 Geçmiş Operasyon Kayıtları")
+        st.markdown("### 📜 Kaydedilen İşlemler")
         if os.path.exists(DB_FILE):
             df = pd.read_csv(DB_FILE)
             st.dataframe(df, use_container_width=True)
+
+            st.divider()
+
+            col_ex1, col_ex2 = st.columns([1, 1])
+            with col_ex1:
+                excel_data = to_excel(df)
+                st.download_button(
+                    label="📥 Excel'e Aktar (İndir)",
+                    data=excel_data,
+                    file_name=f"Mavi_Kimya_Arsiv_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
             
-            if st.button("🔴 Tüm Kayıtları Temizle (Geri Dönülemez)"):
+            with col_ex2:
+            if st.button("🔴 Arşivi Temizle", use_container_width=True):
                 os.remove(DB_FILE)
                 st.warning("Arşiv başarıyla temizlendi.")
                 st.rerun()
