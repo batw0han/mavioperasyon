@@ -285,6 +285,41 @@ elif islem == "Denatürasyon Hesaplama (Yeni Sipariş)":
         else:
             st.warning(f"D. Benzoat: {3 * carpan:.2f} gr")
 
+        st.warning(detay)
+
+        # --- KAYIT HAZIRLIĞI ---
+        st.session_state.son_hesaplama = {
+            "kategori": "Denatürasyon (Yeni)",
+            "girdi": f"{miktar} LT {tip}",
+            "sonuc": detay
+        }
+
+    # KAYIT FORMU
+    if "son_hesaplama" in st.session_state and islem == "Denatürasyon Hesaplama (Yeni Sipariş)":
+        st.divider()
+        with st.expander("💾 Bu Reçeteyi Arşive Kaydet"):
+            kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: Farmed 20 Tonluk Tank Hazırlığı")
+            btn_col1, btn_col2, btn_col3 = st.columns([1, 2, 1])
+            with btn_col2:
+                if st.button("REÇETEYİ ONAYLA", use_container_width=True):
+                    if not st.session_state.authenticated:
+                        st.error("❌ Yetkisiz İşlem! Lütfen önce giriş yapınız.")
+                    else:
+                        if kayit_ismi:
+                            data = st.session_state.son_hesaplama
+                            kaydet(
+                                kayit_ismi, 
+                                data['kategori'], 
+                                data['girdi'], 
+                                data['sonuc'], 
+                                st.session_state.user_name
+                            )
+                            st.success(f"Reçete {st.session_state.user_name} adına kaydedildi!")
+                            del st.session_state.son_hesaplama
+                            st.rerun()
+                        else:
+                            st.warning("Lütfen bir isim giriniz.")
+
 elif islem == "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)":
     tip = st.selectbox("Kontrol Edilecek Ürün:", ["K Tipi", "D Tipi", "Metanol"])
     toplam_h = st.number_input("Toplam Karışım Hacmi (LT)", min_value=0.0)
