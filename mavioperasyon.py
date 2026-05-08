@@ -1,6 +1,8 @@
 import streamlit as st
 import base64
 from PIL import Image
+import pandas as pd
+from datetime import datetime
 import os
 
 # --- SAYFA AYARLARI ---
@@ -10,6 +12,25 @@ st.set_page_config(
     layout="centered"
 )
 
+DB_FILE = "operasyon_kayitlari.csv"
+
+def kaydet(islem_adi, kategori, girdiler, sonuc):
+    yeni_kayit = {
+        "Kaydedilen Ad": islem_adi,
+        "İşlem Kategorisi": kategori,
+        "Girdiler": girdiler,
+        "Sonuç": sonuc,
+        "Tarih": datetime.now().strftime("%d.%m.%Y"),
+        "Saat": datetime.now().strftime("%H:%M")
+    }
+    
+    if os.path.exists(DB_FILE):
+        df = pd.read_csv(DB_FILE)
+        df = pd.concat([df, pd.DataFrame([yeni_kayit])], ignore_index=True)
+    else:
+        df = pd.DataFrame([yeni_kayit])
+    
+    df.to_csv(DB_FILE, index=False)
 
 # --- LOGO VE GÖRSEL HAZIRLIK ---
 def get_image_base64(file_path):
@@ -84,6 +105,7 @@ islem = st.selectbox(
         "Yoğunluk Hesaplama",
         "Denatürasyon Hesaplama (Yeni Sipariş)",
         "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"
+        "---Kaydedilen İşlemler---"
     ]
 )
 
@@ -107,6 +129,19 @@ if islem == "Ardiye Hesaplama":
         with col2:
             st.number_input("Yoğunluk (Density)", min_value=0.00, value=0.00, format="%.4f", disabled=True, help="Litre girişinde yoğunluk hesaplamaya dahil edilmez.")
 
+    st.divider()
+    with st.expander("💾 Bu İşlemi Arşive Kaydet"):
+        kayit_ismi = st.text_input("İşlem için bir isim girin:", placeholder="Örn: Farmed 10 Araç Metanol")
+        if st.button("ONAYLA VE KAYDET"):
+            if kayit_ismi:
+                girdi_notu = f"{giris_tipi}: {kg_input if giris_tipi=='Kilogram (KG)' else hacim_lt}, Yoğunluk: {d_input if giris_tipi=='Kilogram (KG)' else 'N/A'}"
+                sonuc_notu = f"{m3:.3f} m3 / {toplam:.2f} $"
+                
+                kaydet(kayit_ismi, "Ardiye Hesaplama", girdi_notu, sonuc_notu)
+                st.success(f"'{kayit_ismi}' başarıyla kaydedildi!")
+            else:
+                st.warning("Lütfen bir isim giriniz.")
+    
     if st.button("HESAPLA", use_container_width=True):
         m3 = hacim_lt / 1000
         carpan = 13 if antrepo == "İzgin Antrepo" else 9
@@ -188,6 +223,18 @@ elif islem == "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)":
                 {"label": "Gereken", "value": f"{tba_res:.2f} gr"},
                 {"label": "Girdiğiniz", "value": f"{tba:.2f} gr"}
             ])
+
+elif islem == "Kaydedilen İşlemler":
+    st.markdown("### 📜 Geçmiş Operasyon Kayıtları")
+    if os.path.exists(DB_FILE):
+        df = pd.read_csv(DB_FILE)
+        st.dataframe(df, use_container_width=True)
+        
+        if st.button("Tüm Kayıtları Temizle"):
+            os.remove(DB_FILE)
+            st.rerun()
+    else:
+        st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
 
 st.write("")
 st.caption("© 2026 Mavi Plastik Kimya San ve Tic. A.Ş. | Batuhan KILIÇ")
