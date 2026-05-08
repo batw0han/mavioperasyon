@@ -39,13 +39,15 @@ with st.sidebar:
                 st.warning("Lütfen şifrenizi giriniz.")
     else:
         st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
-    if st.session_state.authenticated:
-        st.divider()
-        st.markdown("### 📂 Yönetim")
-        # Arşivi görüntüleme durumunu kontrol etmek için bir checkbox veya buton
-        arsiv_bak = st.checkbox("💾 Kayıtlı İşlemleri Görüntüle")
-    else:
-        arsiv_bak = False
+        st.divier()
+
+        if st.sidebar.button("📋 Kayıtlı İşlemleri Görüntüle", use_container_width=True):
+            st.session_state.sayfa_yonetimi = "Kaydedilen İşlemler"
+            st.rerun()
+
+        if st.sidebar.button("🏠 Ana Menüye Dön", use_container_width=True):
+            st.session_state.sayfa_yonetimi = "Ana Sayfa"
+            st.rerun()
         if st.button("Güvenli Çıkış"):
             st.session_state.authenticated = False
             st.session_state.user_name = ""
