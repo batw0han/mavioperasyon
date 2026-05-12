@@ -222,6 +222,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             urun_secimi = st.selectbox("Ürün Seçiniz:", st.session_state.urun_listesi)
 
     # --- 5. TAŞIMA VE LİMAN ---
+    incoterm_aktif = st.checkbox("Siparişte Incoterm belirtmek istiyorum", value=True, key="inc_chk_top")
     st.divider()
     col_t1, col_t2, col_t3 = st.columns(3)
 # 1. TAŞIMA ŞEKLİ (Sadece ithalat ve ihracatta gözükür, devirlerde gizlenir)
@@ -237,14 +238,10 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
     # 2. INCOTERM (Checkbox ile kilit açma/kapama)
     
     with col_t2:
-        st.markdown("<div style='margin-bottom: -25px;'></div>", unsafe_allow_html=True) # Küçük bir CSS dokunuşu
-        incoterm_aktif = st.checkbox("Incoterm Belirtilecek mi?", value=True, key="inc_chk")
-        
         if incoterm_aktif:
-            # Kutuyu checkbox'ın tam altına hizalamak için etiketini boş bırakıyoruz
-            incoterm = st.selectbox("Teslim Şekli", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], key="sip_inc")
+            incoterm = st.selectbox("Incoterm / Teslim Şekli", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], key="sip_inc")
         else:
-            st.text_input("Teslim Şekli", value="Belirtilmedi", disabled=True, key="inc_dis")
+            st.text_input("Incoterm", value="Belirtilmedi", disabled=True, key="inc_dis")
             incoterm = ""
 
     # 3. LİMAN / GÜMRÜK (Taşıma şekline göre değişen liste)
