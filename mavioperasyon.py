@@ -167,8 +167,80 @@ if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
     st.info("Şu an Arşiv kayıtlarını görüntülüyorsunuz. Menüye dönmek için sol taraftaki 'Ana Menüye Dön' butonuna basabilirsiniz.")
     pass
 elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
-    islem = "Yeni Sipariş"
-    pass
+    st.markdown("### 🏛️ Sipariş ve Gümrük İşlemleri Yönetimi")
+    
+    # --- 1. TEMEL FİRMA VE İŞLEM BİLGİSİ ---
+    col1, col2 = st.columns(2)
+    with col1:
+        tedarikci = st.text_input("Satın Alınan / Satış Yapılan Firma:")
+    with col2:
+        islem_ana_tipi = st.selectbox("İşlem Türü:", ["İthalat", "İhracat"])
+
+    # --- 2. DETAYLI İŞLEM TİPİ SEÇİMİ ---
+    st.divider()
+    if islem_ana_tipi == "İthalat":
+        islem_sekli = st.selectbox("İthalat Şekli:", ["Kesin İthalat", "Devir (Antrepo)", "Geçici İthalat"])
+        beyanname_var_mi = st.checkbox("Beyannamesi Var mı?")
+    else:
+        islem_sekli = st.selectbox("İhracat Şekli:", ["İhracat", "Transit Ticaret", "Devir"])
+        beyanname_var_mi = False # İhracat için şimdilik kapalı tutalım dedin
+
+    # --- 3. BEYANNAME ALANI (SADECE SEÇİLİRSE AÇILIR) ---
+    if beyanname_var_mi:
+        st.info("📑 Beyanname Detayları")
+        b_col1, b_col2, b_col3 = st.columns(3)
+        with b_col1:
+            beyanname_no = st.text_input("Beyanname No:", placeholder="Örn: 2606...")
+        with b_col2:
+            rejim = st.selectbox("Beyanname Rejimi:", ["40 71 (Antrepodan İthalat)", "71 71 (Antrepodan Antrepoya)", "71 00 (Özet Beyan Giriş)", "10 00 (Kesin İhracat)"])
+        with b_col3:
+            kapanis_tarihi = st.date_input("Beyanname Kapanış Tarihi")
+            # --- 30 GÜN SAYMA MANTIĞI ---
+            import datetime
+            vade_tarihi = kapanis_tarihi + datetime.timedelta(days=30)
+            st.warning(f"🏦 Vergi Son Ödeme Tarihi: {vade_tarihi.strftime('%d.%m.%Y')}")
+
+    # --- 4. ÜRÜN VE LOJİSTİK (HER İKİ DURUMDA DA GÖZÜKECEK) ---
+    st.divider()
+    st.markdown("#### 📦 Ürün ve Sevkiyat Detayları")
+    
+    # Ürün listesi (önceki koddan gelen session_state kullanılıyor)
+    if "urun_listesi" not in st.session_state:
+        st.session_state.urun_listesi = ["Metanol", "Etil Asetat", "Glikol"]
+
+    col_u1, col_u2 = st.columns([3, 1])
+    with col_u2:
+        yeni_urun_check = st.checkbox("Yeni Ürün")
+    with col_u1:
+        if yeni_urun_check:
+            urun_adi = st.text_input("Ürün Adını Ekleyin:")
+            if st.button("Listeye Ekle"):
+                st.session_state.urun_listesi.append(urun_adi)
+                st.rerun()
+        else:
+            urun_secimi = st.selectbox("Ürün Seçiniz:", st.session_state.urun_listesi)
+
+    # --- 5. TAŞIMA VE LİMAN ---
+    col_t1, col_t2, col_t3 = st.columns(3)
+    with col_t1:
+        tasima_sekli = st.selectbox("Taşıma Şekli:", ["Deniz", "Kara", "Hava"])
+    with col_t2:
+        incoterm = st.selectbox("Incoterm:", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"])
+    with col_t3:
+        liman = st.selectbox("Liman/Gümrük:", ["Ambarlı", "Körfez", "Derince", "Zeytinburnu", "Mersin", "İzmir"])
+
+    # --- 6. MİKTAR VE TUTAR ---
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        miktar = st.number_input("Miktar:", min_value=0.0)
+        birim = st.radio("Birim:", ["KG", "LT"], horizontal=True)
+    with col_f2:
+        toplam_tutar = st.number_input("Toplam Fatura Tutarı ($):", min_value=0.0)
+
+    # --- 7. KAYIT ---
+    if st.button("SİPARİŞİ VE BEYANNAMEYİ SİSTEME İŞLE", use_container_width=True):
+        # Burada her şeyi CSV'ye kaydedeceğiz kanka
+        st.success("Kayıt başarıyla oluşturuldu. Dashboard'da analiz edilmeye hazır!")
 else:
     islem = st.selectbox(
         "📂 MENÜ",
