@@ -239,7 +239,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
         toplam_tutar = st.number_input("Toplam Fatura Tutarı ($):", min_value=0.0)
 
     # --- 7. KAYIT ---
-    if st.button("SİPARİŞİ VE BEYANNAMEYİ SİSTEME İŞLE", use_container_width=True):
+    if st.button("KAYDET", use_container_width=True):
         # Burada her şeyi CSV'ye kaydedeceğiz kanka
         st.success("Kayıt başarıyla oluşturuldu. Dashboard'da analiz edilmeye hazır!")
 else:
