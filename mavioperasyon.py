@@ -6,6 +6,14 @@ from datetime import datetime
 import os
 
 # --- SESSION STATE BAŞLATMA ---
+CARI_DOSYASI = "cari_listesi.csv"
+
+if "cari_listesi" not in st.session_state:
+    if os.path.exists(CARI_DOSYASI):
+        st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI).to_dict('records')
+    else:
+        st.info = ("Cari Listesi Bulunamadı.")
+        pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False)
 URUN_DOSYASI = "urun_listesi.csv"
 
 if "urun_listesi" not in st.session_state:
@@ -181,13 +189,50 @@ if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
     pass
 elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
     st.markdown("### 🏛️ Sipariş ve Gümrük İşlemleri Yönetimi")
+
+    
     
     # --- 1. TEMEL FİRMA VE İŞLEM BİLGİSİ ---
-    col1, col2 = st.columns(2)
-    with col1:
-        tedarikci = st.text_input("Satın Alınan / Satış Yapılan Firma:")
-    with col2:
-        islem_ana_tipi = st.selectbox("İşlem Türü:", ["İthalat", "İhracat"])
+    st.subheader("🏢 Firma Bilgileri")
+    
+    col_c1, col_c2 = st.columns([3, 1])
+    
+    with col_c2:
+        cari_rehber_ac = st.checkbox("Cari Rehberden Seç", key="cari_mod_check")
+
+    with col_c1:
+        if cari_rehber_ac:
+            # Rehberden arama ve seçme
+            firmalar = [c["cari_adi"] for c in st.session_state.cari_listesi]
+            secilen_cari_adi = st.selectbox("Kayıtlı Cari Seçin:", ["Firma Seçiniz..."] + sorted(firmalar))
+            
+            # Seçilen carinin adresini otomatik çekiyoruz
+            if secilen_cari_adi != "Firma Seçiniz...":
+                tedarikci = secilen_cari_adi
+                # Adresi bulup bilgi olarak gösterelim
+                cari_detay = next((item for item in st.session_state.cari_listesi if item["cari_adi"] == secilen_cari_adi), None)
+                if cari_detay:
+                    st.info(f"📍 Kayıtlı Adres: {cari_detay['adres']}")
+            else:
+                tedarikci = ""
+        else:
+            # Manuel giriş (Eski usul)
+            tedarikci = st.text_input("Satın Alınan / Satış Yapılan Firma:", placeholder="Firma adını manuel girin...")
+
+    # --- YENİ CARİ EKLEME ---
+    if st.checkbox("➕ Yeni Cari Kaydet"):
+        with st.container(border=True):
+            y_cari = st.text_input("Yeni Cari Adı:")
+            y_adres = st.text_area("Cari Adresi:")
+            if st.button("Cariyi Veritabanına İşle"):
+                if y_cari and y_adres:
+                    yeni_kayit = {"cari_adi": y_cari, "adres": y_adres}
+                    st.session_state.cari_listesi.append(yeni_kayit)
+                    pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False)
+                    st.success(f"{y_cari} rehbere eklendi!")
+                    st.rerun()
+    with col_islem1:
+        islem_ana_tipi = st.selectbox("İşlem Türü:", ["İthalat", "İhracat"], key="islem_ana_tip")
 
     # --- 2. DETAYLI İŞLEM TİPİ SEÇİMİ ---
     st.divider()
