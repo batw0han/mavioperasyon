@@ -235,15 +235,15 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             st.info("Devir işleminde taşıma şekli sorulmaz.")
 
     # 2. INCOTERM (Checkbox ile kilit açma/kapama)
+    
     with col_t2:
-        # Checkbox'ı en üste koyup altına boşluk bırakmak yerine 
-        # doğrudan selectbox'ı kontrol eden bir yapı kuruyoruz
+        st.markdown("<div style='margin-bottom: -25px;'></div>", unsafe_allow_html=True) # Küçük bir CSS dokunuşu
         incoterm_aktif = st.checkbox("Incoterm Belirtilecek mi?", value=True, key="inc_chk")
         
         if incoterm_aktif:
+            # Kutuyu checkbox'ın tam altına hizalamak için etiketini boş bırakıyoruz
             incoterm = st.selectbox("Teslim Şekli", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], key="sip_inc")
         else:
-            # Kutunun kaymaması için pasif bir text_input gösteriyoruz
             st.text_input("Teslim Şekli", value="Belirtilmedi", disabled=True, key="inc_dis")
             incoterm = ""
 
