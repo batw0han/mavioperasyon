@@ -256,7 +256,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             liman = st.selectbox("Liman/Gümrük:", ["Ambarlı", "Körfez", "Derince", "Zeytinburnu", "Mersin", "İzmir"], key="deniz_liman")
             #Demiryolu seçildiyse garlar
         elif tasima_sekli == "Demiryolu":
-            liman = st.selectbox("Liman/Gümrük:", ["Halkalı", "Küçükçekmece", "Çerkezköy", "Lüleburgaz"]
+            liman = st.selectbox("Gar gümrüğü:", ["Halkalı", "Küçükçekmece", "Çerkezköy", "Lüleburgaz"], key="demiryolu_gar")
         else:
             liman = st.text_input("Gümrük/Liman:", value="HAVA/DİĞER", key="diger_liman_input")
 
