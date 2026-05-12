@@ -17,7 +17,6 @@ if "cari_listesi" not in st.session_state:
     else:
         # Önce boş bir liste tanımlıyoruz ki hata vermesin
         st.session_state.cari_listesi = [] 
-        st.info("Cari Listesi Bulunamadı, yeni bir liste oluşturuluyor.")
         pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False)
 
 URUN_DOSYASI = "urun_listesi.csv"
