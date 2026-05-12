@@ -227,6 +227,9 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
 # 1. TAŞIMA ŞEKLİ (Sadece ithalat ve ihracatta gözükür, devirlerde gizlenir)
     devir_mi = "Devir" in islem_sekli
     tasima_sekli = None
+
+    st.divider()
+    col_t1, col_t2, col_t3 = st.columns(3)
     
     with col_t1:
         if not devir_mi:
