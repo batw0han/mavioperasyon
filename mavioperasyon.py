@@ -329,7 +329,7 @@ if islem == "Ardiye Hesaplama":
                         else:
                             st.warning("Lütfen işlem için bir isim giriniz.")
 
-elif "Çevirme" in islem:
+elif islem and "Çevirme" in islem:
     col1, col2 = st.columns(2)
     with col1:
         miktar = st.number_input("Miktar", min_value=0.0)
