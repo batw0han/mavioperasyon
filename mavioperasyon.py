@@ -236,17 +236,19 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
                     pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False)
                     st.success(f"{y_cari} rehbere eklendi!")
                     st.rerun()
+
+    col_islem1, col_islem2 = st.columns(2)
     with col_islem1:
         islem_ana_tipi = st.selectbox("İşlem Türü:", ["İthalat", "İhracat"], key="islem_ana_tip")
 
     # --- 2. DETAYLI İŞLEM TİPİ SEÇİMİ ---
-    st.divider()
-    if islem_ana_tipi == "İthalat":
-        islem_sekli = st.selectbox("İthalat Şekli:", ["Kesin İthalat", "Devir (Antrepo)", "Geçici İthalat"])
-        beyanname_var_mi = st.checkbox("Beyannamesi Var mı?")
-    else:
-        islem_sekli = st.selectbox("İhracat Şekli:", ["İhracat", "Transit Ticaret", "Devir"])
-        beyanname_var_mi = False # İhracat için şimdilik kapalı tutalım dedin
+    with col_islem2:
+        if islem_ana_tipi == "İthalat":
+            islem_sekli = st.selectbox("İthalat Şekli:", ["Kesin İthalat", "Devir (Antrepo)", "Geçici İthalat"])
+            beyanname_var_mi = st.checkbox("Beyannamesi Var mı?")
+        else:
+            islem_sekli = st.selectbox("İhracat Şekli:", ["İhracat", "Transit Ticaret", "Devir"])
+            beyanname_var_mi = False # İhracat için şimdilik kapalı tutalım dedin
 
     # --- 3. BEYANNAME ALANI (SADECE SEÇİLİRSE AÇILIR) ---
     if beyanname_var_mi:
