@@ -11,9 +11,8 @@ CARI_DOSYASI = "cari_listesi.csv"
 if "cari_listesi" not in st.session_state:
     if os.path.exists(CARI_DOSYASI):
         try:
-        st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='utf-8').to_dict('records')
+            st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='utf-8').to_dict('records')
         except UnicodeDecodeError:
-            # Eğer yukarıdaki yemezse, Excel'in sevdiği 'latin1' veya 'cp1252' dene
             st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='iso-8859-9').to_dict('records')
     else:
         st.info = ("Cari Listesi Bulunamadı.")
