@@ -231,7 +231,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
     
     with col_t1:
         if not devir_mi:
-            tasima_sekli = st.selectbox("Taşıma Şekli:", ["Deniz", "Kara", "Hava"], key="siparis_tasima")
+            tasima_sekli = st.selectbox("Taşıma Şekli:", ["Deniz", "Kara", "Hava", "Demiryolu"], key="siparis_tasima")
         else:
             st.info("Devir işleminde taşıma şekli sorulmaz.")
 
@@ -250,10 +250,13 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             liman = st.selectbox("İşlem Yapılan Gümrük:", ["Erenköy Gümrük", "Muratbey Gümrük", "Ambarlı Gümrük"], key="devir_gumruk")
         elif tasima_sekli == "Kara":
             # Kara seçildiyse kara gümrükleri
-            liman = st.selectbox("Kara Gümrüğü:", ["Muratbey", "Erenköy", "Halkalı", "Çerkezköy", "Kapıkule"], key="kara_gumruk")
+            liman = st.selectbox("Kara Gümrüğü:", ["Muratbey", "Erenköy", "Dereköy", "Çerkezköy", "Kapıkule"], key="kara_gumruk")
         elif tasima_sekli == "Deniz":
             # Deniz seçildiyse limanlar
             liman = st.selectbox("Liman/Gümrük:", ["Ambarlı", "Körfez", "Derince", "Zeytinburnu", "Mersin", "İzmir"], key="deniz_liman")
+            #Demiryolu seçildiyse garlar
+        elif tasima_sekli == "Demiryolu":
+            liman = st.selectbox("Liman/Gümrük:", ["Halkalı", "Küçükçekmece", "Çerkezköy", "Lüleburgaz"]
         else:
             liman = st.text_input("Gümrük/Liman:", value="HAVA/DİĞER", key="diger_liman_input")
 
