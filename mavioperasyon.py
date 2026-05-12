@@ -15,10 +15,9 @@ if "urun_listesi" not in st.session_state:
         st.session_state.urun_listesi = df_u["urun_adi"].tolist()
     else:
         # Dosya yoksa başlangıç listesini oluştur ve kaydet
-        baslangic_urunler = ["Methanol", "Ethyl Acetate", "IPA", "Isobuthanol"]
-        st.session_state.urun_listesi = sorted(baslangic_urunler)
+        initial_list = ["Methanol", "Ethyl Acetate", "IPA", "Isobuthanol"]
+        st.session_state.urun_listesi = sorted(initial_list)
         pd.DataFrame({"urun_adi": st.session_state.urun_listesi}).to_csv(URUN_DOSYASI, index=False)
-    st.session_state.urun_listesi = sorted(initial_list)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "user_name" not in st.session_state:
