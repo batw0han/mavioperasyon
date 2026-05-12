@@ -16,6 +16,7 @@ if "urun_listesi" not in st.session_state:
         "IPA", 
         "Methyl Acetate"
     ]
+    st.session_state.urun_listesi = sorted(initial_list)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "user_name" not in st.session_state:
@@ -224,6 +225,8 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             urun_adi = st.text_input("Ürün Adını Ekleyin:")
             if st.button("Listeye Ekle"):
                 st.session_state.urun_listesi.append(urun_adi)
+                st.session_state.urun_listesi.sort()
+                st.success(f"{urun_adi} başarıyla eklendi!")
                 st.rerun()
         else:
             urun_secimi = st.selectbox("Ürün Seçiniz:", st.session_state.urun_listesi)
