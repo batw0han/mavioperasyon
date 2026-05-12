@@ -161,6 +161,7 @@ def to_excel(df):
 
 
 # --- ANA MENÜ ---
+islem = None
 if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
     islem = "Kaydedilen İşlemler"
     # Arşivdeyken en üste bir geri dönüş bilgisi
