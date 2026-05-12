@@ -10,7 +10,7 @@ CARI_DOSYASI = "cari_listesi.csv"
 
 if "cari_listesi" not in st.session_state:
     if os.path.exists(CARI_DOSYASI):
-        st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI).to_dict('records')
+        st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='utf-8').to_dict('records')
     else:
         st.info = ("Cari Listesi Bulunamadı.")
         pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False)
