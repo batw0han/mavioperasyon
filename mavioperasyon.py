@@ -235,13 +235,14 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             st.info("Devir işleminde taşıma şekli sorulmaz.")
 
     # 2. INCOTERM (Checkbox ile kilit açma/kapama)
-    with col_t2:
-        incoterm_aktif = st.checkbox("Incoterm Belirt", key="incoterm_aktif_check")
+    incoterm_aktif = st.checkbox("Incoterm Belirtilecek mi?", value=True, key="inc_chk")
+        
         if incoterm_aktif:
-            incoterm = st.selectbox("Incoterm:", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], key="siparis_incoterm")
+            incoterm = st.selectbox("Teslim Şekli", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], key="sip_inc")
         else:
-            incoterm = "" # Boş olarak kaydedilecek
-            st.text_input("Incoterm:", value="BELİRTİLMEDİ", disabled=True, key="incoterm_disabled")
+            # Kutunun kaymaması için pasif bir text_input gösteriyoruz
+            st.text_input("Teslim Şekli", value="Belirtilmedi", disabled=True, key="inc_dis")
+            incoterm = ""
 
     # 3. LİMAN / GÜMRÜK (Taşıma şekline göre değişen liste)
     with col_t3:
