@@ -207,7 +207,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
     
     # Ürün listesi (önceki koddan gelen session_state kullanılıyor)
     if "urun_listesi" not in st.session_state:
-        st.session_state.urun_listesi = ["Metanol", "Etil Asetat", "Glikol"]
+        st.session_state.urun_listesi = ["Methanol", "Ethyl Acetate", "PM Glycole/Methoxypropanol", "N-buthanol", "Isobuthanol", "IPA", "Methyl Acetate"]
 
     col_u1, col_u2 = st.columns([3, 1])
     with col_u2:
