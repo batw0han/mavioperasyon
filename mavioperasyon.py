@@ -222,13 +222,39 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             urun_secimi = st.selectbox("Ürün Seçiniz:", st.session_state.urun_listesi)
 
     # --- 5. TAŞIMA VE LİMAN ---
+    st.divider()
     col_t1, col_t2, col_t3 = st.columns(3)
+# 1. TAŞIMA ŞEKLİ (Sadece ithalat ve ihracatta gözükür, devirlerde gizlenir)
+    devir_mi = "Devir" in islem_sekli
+    tasima_sekli = None
+    
     with col_t1:
-        tasima_sekli = st.selectbox("Taşıma Şekli:", ["Deniz", "Kara", "Hava"])
+        if not devir_mi:
+            tasima_sekli = st.selectbox("Taşıma Şekli:", ["Deniz", "Kara", "Hava"], key="siparis_tasima")
+        else:
+            st.info("Devir işleminde taşıma şekli sorulmaz.")
+
+    # 2. INCOTERM (Checkbox ile kilit açma/kapama)
     with col_t2:
-        incoterm = st.selectbox("Incoterm:", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"])
+        incoterm_aktif = st.checkbox("Incoterm Belirt", key="incoterm_aktif_check")
+        if incoterm_aktif:
+            incoterm = st.selectbox("Incoterm:", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"], key="siparis_incoterm")
+        else:
+            incoterm = "" # Boş olarak kaydedilecek
+            st.text_input("Incoterm:", value="BELİRTİLMEDİ", disabled=True, key="incoterm_disabled")
+
+    # 3. LİMAN / GÜMRÜK (Taşıma şekline göre değişen liste)
     with col_t3:
-        liman = st.selectbox("Liman/Gümrük:", ["Ambarlı", "Körfez", "Derince", "Zeytinburnu", "Mersin", "İzmir"])
+        if devir_mi:
+            liman = st.selectbox("İşlem Yapılan Gümrük:", ["Erenköy Gümrük", "Muratbey Gümrük", "Ambarlı Gümrük"], key="devir_gumruk")
+        elif tasima_sekli == "Kara":
+            # Kara seçildiyse kara gümrükleri
+            liman = st.selectbox("Kara Gümrüğü:", ["Muratbey", "Erenköy", "Halkalı", "Çerkezköy", "Kapıkule"], key="kara_gumruk")
+        elif tasima_sekli == "Deniz":
+            # Deniz seçildiyse limanlar
+            liman = st.selectbox("Liman/Gümrük:", ["Ambarlı", "Körfez", "Derince", "Zeytinburnu", "Mersin", "İzmir"], key="deniz_liman")
+        else:
+            liman = st.text_input("Gümrük/Liman:", value="HAVA/DİĞER", key="diger_liman_input")
 
     # --- 6. MİKTAR VE TUTAR ---
     col_f1, col_f2 = st.columns(2)
