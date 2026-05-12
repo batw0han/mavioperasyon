@@ -6,6 +6,16 @@ from datetime import datetime
 import os
 
 # --- SESSION STATE BAŞLATMA ---
+if "urun_listesi" not in st.session_state:
+    st.session_state.urun_listesi = [
+        "Methanol", 
+        "Ethyl Acetate", 
+        "PM Glycole/Methoxypropanol", 
+        "N-buthanol", 
+        "Isobuthanol", 
+        "IPA", 
+        "Methyl Acetate"
+    ]
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "user_name" not in st.session_state:
@@ -205,9 +215,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
     st.divider()
     st.markdown("#### 📦 Ürün ve Sevkiyat Detayları")
     
-    # Ürün listesi (önceki koddan gelen session_state kullanılıyor)
-    if "urun_listesi" not in st.session_state:
-        st.session_state.urun_listesi = ["Methanol", "Ethyl Acetate", "PM Glycole/Methoxypropanol", "N-buthanol", "Isobuthanol", "IPA", "Methyl Acetate"]
 
     col_u1, col_u2 = st.columns([3, 1])
     with col_u2:
