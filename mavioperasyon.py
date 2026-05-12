@@ -15,8 +15,11 @@ if "cari_listesi" not in st.session_state:
         except UnicodeDecodeError:
             st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='iso-8859-9').to_dict('records')
     else:
-        st.info = ("Cari Listesi Bulunamadı.")
+        # Önce boş bir liste tanımlıyoruz ki hata vermesin
+        st.session_state.cari_listesi = [] 
+        st.info("Cari Listesi Bulunamadı, yeni bir liste oluşturuluyor.")
         pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False)
+
 URUN_DOSYASI = "urun_listesi.csv"
 
 if "urun_listesi" not in st.session_state:
