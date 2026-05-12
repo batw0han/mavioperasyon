@@ -6,16 +6,18 @@ from datetime import datetime
 import os
 
 # --- SESSION STATE BAŞLATMA ---
+URUN_DOSYASI = "urun_listesi.csv"
+
 if "urun_listesi" not in st.session_state:
-    st.session_state.urun_listesi = [
-        "Methanol", 
-        "Ethyl Acetate", 
-        "PM Glycole/Methoxypropanol", 
-        "N-buthanol", 
-        "Isobuthanol", 
-        "IPA", 
-        "Methyl Acetate"
-    ]
+    if os.path.exists(URUN_DOSYASI):
+        # Dosya varsa oradan oku
+        df_u = pd.read_csv(URUN_DOSYASI)
+        st.session_state.urun_listesi = df_u["urun_adi"].tolist()
+    else:
+        # Dosya yoksa başlangıç listesini oluştur ve kaydet
+        baslangic_urunler = ["Methanol", "Ethyl Acetate", "IPA", "Isobuthanol"]
+        st.session_state.urun_listesi = sorted(baslangic_urunler)
+        pd.DataFrame({"urun_adi": st.session_state.urun_listesi}).to_csv(URUN_DOSYASI, index=False)
     st.session_state.urun_listesi = sorted(initial_list)
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -222,12 +224,22 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
         yeni_urun_check = st.checkbox("Yeni Ürün")
     with col_u1:
         if yeni_urun_check:
-            urun_adi = st.text_input("Ürün Adını Ekleyin:")
+            urun_adi = st.text_input("Ürün Adını Ekleyin:", key="yeni_urun_input")
             if st.button("Listeye Ekle"):
-                st.session_state.urun_listesi.append(urun_adi)
-                st.session_state.urun_listesi.sort()
-                st.success(f"{urun_adi} başarıyla eklendi!")
-                st.rerun()
+                if urun_adi and urun_adi not in st.session_state.urun_listesi:
+                    # 1. Listeye ekle ve sırala
+                    st.session_state.urun_listesi.append(urun_adi)
+                    st.session_state.urun_listesi.sort()
+                    
+                    # 2. KALICILIK: Dosyaya kaydet (F5 yapınca gitmez)
+                    pd.DataFrame({"urun_adi": st.session_state.urun_listesi}).to_csv(URUN_DOSYASI, index=False)
+                    
+                    # 3. OTOMATİK DÖNÜŞ: Checkbox'ı kapatmak için session_state değerini zorla değiştiriyoruz
+                    # Not: Checkbox'ın 'key' parametresi "yeni_urun_check_key" olmalı
+                    st.session_state.yeni_urun_check_key = False 
+                    
+                    st.success(f"{urun_adi} kalıcı olarak eklendi!")
+                    st.rerun()
         else:
             urun_secimi = st.selectbox("Ürün Seçiniz:", st.session_state.urun_listesi)
 
