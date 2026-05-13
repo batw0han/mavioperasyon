@@ -552,10 +552,7 @@ elif islem == "Kaydedilen İşlemler":
             df = pd.DataFrame(data)
             st.dataframe(df, use_container_width=True)
             # Excel indirme butonu aynı kalabilir, df'i zaten yukarıda oluşturduk.
-        else:
-            st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
-
-            # --- BUTON YERLEŞİMLERİ ---
+                    # --- BUTON YERLEŞİMLERİ ---
 
             col_ex1, col_ex2 = st.columns([1, 1])
             
@@ -574,6 +571,10 @@ elif islem == "Kaydedilen İşlemler":
                     os.remove(DB_FILE)
                     st.warning("Arşiv başarıyla temizlendi.")
                     st.rerun()
+        else:
+            st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
+
+
 
 st.write("")
 st.caption("© 2026 Mavi Plastik Kimya San ve Tic. A.Ş. | Batuhan KILIÇ")
