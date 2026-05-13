@@ -412,15 +412,23 @@ if islem == "Ardiye Hesaplama":
     if "son_hesaplama" in st.session_state and islem == "Ardiye Hesaplama":
         st.divider()
         with st.expander("💾 Bu İşlemi Arşive Kaydet"):
-            kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: 10 Araç Metanol")
-            btn_col1, btn_col2, btn_col3 = st.columns([1, 2, 1])
-            with btn_col2:
-                if st.button("KAYDI ONAYLA", use_container_width=True):
+            # Form kullanarak girişleri paketliyoruz
+            with st.form("kayit_formu", clear_on_submit=True):
+                kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: 10 Araç Metanol")
+                submit_button = st.form_submit_button("KAYDI ONAYLA", use_container_width=True)
+
+                if submit_button:
                     if not st.session_state.authenticated:
-                        st.error("❌ Yetkisiz İşlem! Lütfen önce personel şifrenizle giriş yapınız.")
+                        st.error("❌ Yetkisiz İşlem! Önce giriş yapın.")
+                    elif not kayit_ismi:
+                        st.warning("⚠️ Lütfen işlem için bir isim giriniz.")
                     else:
-                        if kayit_ismi:
-                            data = st.session_state.son_hesaplama
+                        # Veriyi çek
+                        data = st.session_state.son_hesaplama
+                        
+                        # Google Sheets'e yazma işlemi
+                        # Buraya bir 'wait' iconu ekleyelim ki gittiğini anlayalım
+                        with st.status("Veri buluta işleniyor...", expanded=False) as status:
                             kaydet(
                                 kayit_ismi, 
                                 data['kategori'], 
@@ -428,11 +436,15 @@ if islem == "Ardiye Hesaplama":
                                 data['sonuc'], 
                                 st.session_state.user_name
                             )
-                            st.success(f"İşlem {st.session_state.user_name} adına başarıyla kaydedildi!")
-                            del st.session_state.son_hesaplama
-                            st.rerun()
-                        else:
-                            st.warning("Lütfen işlem için bir isim giriniz.")
+                            status.update(label="Kayıt Başarılı!", state="complete", expanded=False)
+                        
+                        st.success(f"İşlem {st.session_state.user_name} adına kaydedildi!")
+                        
+                        # Temizlik
+                        del st.session_state.son_hesaplama
+                        # Rerun yapmadan önce verinin gittiğinden emin olmak için kısa bir bekletme
+                        st.balloons()
+                        # st.rerun() # Form içinde rerun bazen sorun çıkarabilir, gerekirse açarsın
 
 elif islem and "Çevirme" in islem:
     col1, col2 = st.columns(2)
