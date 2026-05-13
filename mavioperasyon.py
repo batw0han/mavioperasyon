@@ -268,7 +268,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
                 st.rerun()
     st.divider()
 
-    col_islem1, col_islem2 = st.columns(2)
+    col_islem1, col_islem2, col_islem3 = st.columns([2, 2, 2])
     with col_islem1:
         islem_ana_tipi = st.selectbox("İşlem Türü:", ["İthalat", "İhracat"], key="islem_ana_tip")
 
@@ -280,6 +280,8 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
         else:
             islem_sekli = st.selectbox("İhracat Şekli:", ["İhracat", "Transit Ticaret", "Devir"])
             beyanname_var_mi = False # İhracat için şimdilik kapalı tutalım dedin
+    with col_islem3:
+        invoice_no = st.text_input("Inv. No:", placeholder="Örn: MAVI-2026-001")
 
     # --- 3. BEYANNAME ALANI (SADECE SEÇİLİRSE AÇILIR) ---
     if beyanname_var_mi:
@@ -375,16 +377,15 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
         if tedarikci == "" or miktar == 0:
             st.error("Lütfen cari seçimi yapın ve miktar girin!")
         else:
-            # Buradaki sonuc kısmına para birimini de ekliyoruz
+            # Arşivdeki 'Kayıt İsmi' veya 'Yapılan İşlem' kısmına Invoice No'yu ekliyoruz
             kaydet(
-                islem_adi=f"Sipariş: {tedarikci}",
+                islem_adi=f"INV: {invoice_no} | {tedarikci}", # Kayıt isminde fatura no başa geldi
                 kategori=f"{islem_ana_tipi} - {islem_sekli}",
                 girdiler=f"{miktar} {birim} {urun_secimi}",
-                sonuc=f"{toplam_tutar} {para_birimi}", # Artık seçtiğin simgeyle kaydedecek
+                sonuc=f"{toplam_tutar} {para_birimi}",
                 personel_adi=st.session_state.user_name
             )
-            st.success(f"Sipariş {para_birimi} bazında başarıyla kaydedildi! 🚀")
-            st.balloons()
+            st.success(f" {invoice_no} no'lu kayıt başarıyla oluşturuldu")
 else:
     islem = st.selectbox(
         "📂 MENÜ",
