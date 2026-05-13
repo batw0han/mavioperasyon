@@ -7,13 +7,23 @@ import pandas as pd
 from datetime import datetime
 import os
 
-@st.cache_data(ttl=300) 
-def get_data_cached(sheet_name):
-    # Bu fonksiyon hangi sayfayı istersen onu hızlıca getirir
-    sheet = spreadsheet.worksheet(sheet_name)
-    return sheet.get_all_records()
+# ---  TURBO MOD (CACHING) AYARLARI ---
+# Bu kısım bağlantıyı ve veriyi hafızada tutar, hızı 10 kat artırır.
 
-# Yazma işlemi yapıldığında hafızayı temizlemek için:
+@st.cache_resource
+def get_gsheet_client():
+    creds_dict = st.secrets["gcp_service_account"]
+    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    return gspread.authorize(creds)
+
+@st.cache_data(ttl=600) # Verileri 10 dakika hafızada tutar
+def load_data_cached(sheet_name):
+    client = get_gsheet_client()
+    spreadsheet = client.open("Mavioperasyon_Database")
+    return spreadsheet.worksheet(sheet_name).get_all_records()
+
+# Veri yazıldığında hafızayı tazelemek için
 def clear_cache():
     st.cache_data.clear()
 
@@ -26,24 +36,22 @@ def get_gsheet_client():
     return gspread.authorize(creds)
 
 client = get_gsheet_client()
-SHEET_NAME = "Mavioperasyon_Database"
-spreadsheet = client.open(SHEET_NAME)
+spreadsheet = client.open("Mavioperasyon_Database")
 
 cari_sheet = spreadsheet.worksheet("cari_listesi")
 urun_sheet = spreadsheet.worksheet("urun_listesi")
 kayitlar_sheet = spreadsheet.worksheet("t_kayitlari")
+kullanici_sheet = spreadsheet.worksheet("kullanicilar")
 
 # --- SESSION STATE BAŞLATMA ---
 # Cari Listesi Yükleme
 if "cari_listesi" not in st.session_state:
-    # Google Sheets'ten tüm veriyi çek ve sözlüğe çevir
-    st.session_state.cari_listesi = cari_sheet.get_all_records()
+    st.session_state.cari_listesi = load_data_cached("cari_listesi")
 
 # Ürün Listesi Yükleme
 if "urun_listesi" not in st.session_state:
-    # Ürün listesini sütun olarak çek (ilk satır başlık olduğu için [1:] yapıyoruz)
-    # Eğer sayfada sadece 'urun_adi' sütunu varsa col_values(1) yeterli
-    st.session_state.urun_listesi = sorted(urun_sheet.col_values(1)[1:])
+    u_data = load_data_cached("urun_listesi")
+    st.session_state.urun_listesi = sorted([row["urun_adi"] for row in u_data])
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -70,7 +78,7 @@ if not st.session_state.authenticated:
         
         if st.button("Giriş Yap"):
             if giris_ad and sifre_giris: # Önce alanlar dolu mu diye bakıyoruz
-                user_data = kullanici_sheet.get_all_records()
+                user_data = load_data_cached("kullanicilar")
                 # Kullanıcıyı bulalım
                 user = next((item for item in user_data if str(item["kullanici_adi"]) == giris_ad and str(item["sifre"]) == sifre_giris), None)
                 
@@ -130,6 +138,7 @@ def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi):
         ]
         # Veriyi Google Sheets'e basıyoruz
         kayitlar_sheet.append_row(yeni_kayit_satiri)
+        clear_cache()
         st.toast("Veri başarıyla iletildi! ✅")
     except Exception as e:
         st.error(f"Veri yazılamadı: {e}")
@@ -582,7 +591,7 @@ elif islem == "Kaydedilen İşlemler":
     else:
         st.markdown("### 📜 Kaydedilen İşlemler")
         # Sayfadaki tüm verileri çek ve DataFrame yap
-        data = kayitlar_sheet.get_all_records()
+        data = load_data_cached("t_kayitlari")
         if data:
             df = pd.DataFrame(data)
             st.dataframe(df, use_container_width=True, hide_index=True)
@@ -601,11 +610,15 @@ elif islem == "Kaydedilen İşlemler":
                 )
             
             with col_ex2:
-                if st.session_state.get("user_role") == "admin":
+                # YETKİ KONTROLÜ
+                if st.session_state.user_role == "admin":
                     if st.button("🔴 Arşivi Temizle", use_container_width=True):
-                        os.remove(DB_FILE)
-                        st.warning("Arşiv başarıyla temizlendi.")
-                        st.rerun()
+                        # Başlıklar kalsın diye 2. satırdan itibaren sil
+                        rows_to_del = len(kayitlar_sheet.get_all_values())
+                        if rows_to_del > 1:
+                            kayitlar_sheet.delete_rows(2, rows_to_del)
+                            clear_cache()
+                            st.rerun()
                 else:
                     st.warning("⚠️ Arşivi temizleme yetkiniz bulunmamaktadır. Lütfen yönetici ile görüşün.")
         else:
