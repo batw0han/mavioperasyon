@@ -574,8 +574,7 @@ elif islem == "Kaydedilen İşlemler":
         # Sayfadaki tüm verileri çek ve DataFrame yap
         data = kayitlar_sheet.get_all_records()
         if data:
-            headers = ["Kayıt İsmi", "Yapılan İşlem", "Miktar", "İşlem Sonucu", "Tarih", "Saat", "Yapan Kullanıcı"]
-            df = pd.DataFrame(data, columns=headers)
+            df = pd.DataFrame(data)
             st.dataframe(df, use_container_width=True)
                     # --- BUTON YERLEŞİMLERİ ---
 
