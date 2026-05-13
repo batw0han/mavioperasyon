@@ -384,7 +384,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
                 kategori=f"{islem_ana_tipi} - {islem_sekli}",
                 girdiler=f"{miktar} {birim} {urun_secimi}",
                 sonuc=f"{toplam_tutar} {para_birimi}",
-                personel_adi=st.session_state.user_name
+                personel_adi=st.session_state.user_name,
                 hedef_sheet=p_kayitlar_sheet
             )
             st.success(f" {invoice_no} no'lu kayıt başarıyla oluşturuldu")
