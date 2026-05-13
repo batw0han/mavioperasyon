@@ -7,6 +7,16 @@ import pandas as pd
 from datetime import datetime
 import os
 
+@st.cache_data(ttl=300) 
+def get_data_cached(sheet_name):
+    # Bu fonksiyon hangi sayfayı istersen onu hızlıca getirir
+    sheet = spreadsheet.worksheet(sheet_name)
+    return sheet.get_all_records()
+
+# Yazma işlemi yapıldığında hafızayı temizlemek için:
+def clear_cache():
+    st.cache_data.clear()
+
 # --- GOOGLE SHEETS BAĞLANTI AYARLARI ---
 def get_gsheet_client():
     # Streamlit Secrets
