@@ -21,7 +21,7 @@ spreadsheet = client.open(SHEET_NAME)
 
 cari_sheet = spreadsheet.worksheet("cari_listesi")
 urun_sheet = spreadsheet.worksheet("urun_listesi")
-kayitlar_sheet = spreadsheet.worksheet("operasyon_kayitlar")
+kayitlar_sheet = spreadsheet.worksheet("t_kayitlari")
 
 # --- SESSION STATE BAŞLATMA ---
 # Cari Listesi Yükleme
