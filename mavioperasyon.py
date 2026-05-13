@@ -50,20 +50,26 @@ SIFRE_REHBERI = {
 }
 
 # --- GİRİŞ PANELİ ---
-with st.sidebar:
-    st.markdown("### 🔐 Personel Girişi")
-    if not st.session_state.authenticated:
-        sifre_giris = st.text_input("Giriş Şifresi:", type="password") 
+kullanici_sheet = spreadsheet.worksheet("kullanicilar")
+
+if not st.session_state.authenticated:
+    with st.sidebar:
+        st.markdown("### 🔐 Personel Girişi")
+        giris_ad = st.text_input("Kullanıcı Adı:")
+        sifre_giris = st.text_input("Şifre:", type="password")
         
         if st.button("Giriş Yap"):
-            if sifre_giris:
-                if sifre_giris in SIFRE_REHBERI:
-                    st.session_state.authenticated = True
-                    st.session_state.user_name = SIFRE_REHBERI[sifre_giris]
-                    st.success(f"Hoş geldin, {st.session_state.user_name}!")
-                    st.rerun()
-                else:
-                    st.error("Hatalı veya Geçersiz Şifre!")
+            user_data = kullanici_sheet.get_all_records()
+            # Kullanıcıyı bulalım
+            user = next((item for item in user_data if str(item["kullanici_adi"]) == giris_ad and str(item["sifre"]) == sifre_giris), None)
+            
+            if user:
+                st.session_state.authenticated = True
+                st.session_state.user_name = user["kullanici_adi"]
+                st.session_state.user_role = user["yetki_seviyesi"] # Yetkiyi de hafızaya alıyoruz
+                st.rerun()
+            else:
+                st.error("Hatalı Giriş!")
             else:
                 st.warning("Lütfen şifrenizi giriniz.")
     else:
@@ -581,11 +587,14 @@ elif islem == "Kaydedilen İşlemler":
                 )
             
             with col_ex2:
-                if st.button("🔴 Arşivi Temizle", use_container_width=True):
-                    os.remove(DB_FILE)
-                    st.warning("Arşiv başarıyla temizlendi.")
-                    st.rerun()
-        else:
+                if st.session_state.get("user_role") == "admin":
+                    if st.button("🔴 Arşivi Temizle", use_container_width=True):
+                        os.remove(DB_FILE)
+                        st.warning("Arşiv başarıyla temizlendi.")
+                        st.rerun()
+                else:
+                    st.warning("⚠️ Arşivi temizleme yetkiniz bulunmamaktadır. Lütfen yönetici ile görüşün.")
+            else:
             st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
 
 
