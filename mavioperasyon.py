@@ -200,42 +200,49 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
     # --- 1. TEMEL FİRMA VE İŞLEM BİLGİSİ ---
     st.subheader("🏢 Firma Bilgileri")
     
-    col_c1, col_c2 = st.columns([3, 1])
+    firmalar = [c["cari_adi"] for c in st.session_state.cari_listesi]
     
-    with col_c2:
-        cari_rehber_ac = st.checkbox("Cari Rehberden Seç", key="cari_mod_check")
+    # Akıllı Arama ve Seçim Kutusu
+    secilen_cari_adi = st.selectbox(
+        "Cari Adı Ara / Seç:", 
+        options=[""] + sorted(firmalar), 
+        format_func=lambda x: "Firma seçmek için yazmaya başlayın..." if x == "" else x,
+        key="akilli_cari_secim"
+    )
 
-    with col_c1:
-        if cari_rehber_ac:
-            # Rehberden arama ve seçme
-            firmalar = [c["cari_adi"] for c in st.session_state.cari_listesi]
-            secilen_cari_adi = st.selectbox("Kayıtlı Cari Seçin:", ["Firma Seçiniz..."] + sorted(firmalar))
+    # Seçilen carinin detaylarını gösteren ERP tipi Alt Panel
+    if secilen_cari_adi != "":
+        cari_detay = next((item for item in st.session_state.cari_listesi if item["cari_adi"] == secilen_cari_adi), None)
+        
+        if cari_detay:
+            tedarikci = secilen_cari_adi # Veritabanına kayıt
             
-            # Seçilen carinin adresini otomatik çekiyoruz
-            if secilen_cari_adi != "Firma Seçiniz...":
-                tedarikci = secilen_cari_adi
-                # Adresi bulup bilgi olarak gösterelim
-                cari_detay = next((item for item in st.session_state.cari_listesi if item["cari_adi"] == secilen_cari_adi), None)
-                if cari_detay:
-                    st.info(f"📍 Kayıtlı Adres: {cari_detay['adres']}")
-            else:
-                tedarikci = ""
+            with st.container(border=True):
+                c_detay1, c_detay2 = st.columns([3, 1])
+                with c_detay1:
+                    st.markdown(f"**📍 Kayıtlı Adres:**\n{cari_detay.get('adres', 'Adres Bilgisi Yok')}")
+                with c_detay2:
+                    st.caption("✅ Veritabanı Onaylı")
         else:
-            # Manuel giriş (Eski usul)
-            tedarikci = st.text_input("Satın Alınan / Satış Yapılan Firma:", placeholder="Firma adını manuel girin...")
+            tedarikci = ""
+    else:
+        tedarikci = ""
+        st.info("İşlem yapmak için lütfen listeden bir firma seçin.")
 
-    # --- YENİ CARİ EKLEME ---
-    if st.checkbox("➕ Yeni Cari Kaydet"):
-        with st.container(border=True):
-            y_cari = st.text_input("Yeni Cari Adı:")
-            y_adres = st.text_area("Cari Adresi:")
-            if st.button("Cariyi Veritabanına İşle"):
-                if y_cari and y_adres:
-                    yeni_kayit = {"cari_adi": y_cari, "adres": y_adres}
-                    st.session_state.cari_listesi.append(yeni_kayit)
-                    pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False)
-                    st.success(f"{y_cari} rehbere eklendi!")
-                    st.rerun()
+    # --- YENİ CARİ EKLEME (Expander içinde gizledik ki ekran kalabalık olmasın) ---
+    with st.expander("➕ Yeni Cari Kaydet"):
+        y_cari = st.text_input("Yeni Cari Adı:", key="y_cari_input")
+        y_adres = st.text_area("Cari Adresi:", key="y_cari_adres")
+        if st.button("Cariyi Rehbere İşle", use_container_width=True):
+            if y_cari and y_adres:
+                yeni_kayit = {"cari_adi": y_cari, "adres": y_adres}
+                st.session_state.cari_listesi.append(yeni_kayit)
+                # Kaydederken sig (BOM) kullanıyoruz ki Excel ve Python karakterleri bozmasın
+                pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False, encoding='utf-8-sig')
+                st.success(f"{y_cari} rehbere eklendi!")
+                st.rerun()
+
+    st.divider()
 
     col_islem1, col_islem2 = st.columns(2)
     with col_islem1:
