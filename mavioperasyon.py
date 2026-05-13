@@ -31,16 +31,7 @@ def clear_cache():
     st.cache_data.clear()
 
 # --- GOOGLE SHEETS BAĞLANTI AYARLARI ---
-def get_gsheet_client():
-    # Streamlit Secrets
-    creds_dict = st.secrets["gcp_service_account"]
-    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    return gspread.authorize(creds)
-
-client = get_gsheet_client()
-spreadsheet = client.open("Mavioperasyon_Database")
-
+spreadsheet = get_spreadsheet_cached()
 cari_sheet = spreadsheet.worksheet("cari_listesi")
 urun_sheet = spreadsheet.worksheet("urun_listesi")
 kayitlar_sheet = spreadsheet.worksheet("t_kayitlari")
