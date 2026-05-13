@@ -574,9 +574,9 @@ elif islem == "Kaydedilen İşlemler":
         # Sayfadaki tüm verileri çek ve DataFrame yap
         data = kayitlar_sheet.get_all_records()
         if data:
-            df = pd.DataFrame(data)
+            headers = ["Kayıt İsmi", "Yapılan İşlem", "Miktar", "İşlem Sonucu", "Tarih", "Saat", "Yapan Kullanıcı"]
+            df = pd.DataFrame(data, columns=headers)
             st.dataframe(df, use_container_width=True)
-            # Excel indirme butonu aynı kalabilir, df'i zaten yukarıda oluşturduk.
                     # --- BUTON YERLEŞİMLERİ ---
 
             col_ex1, col_ex2 = st.columns([1, 1])
