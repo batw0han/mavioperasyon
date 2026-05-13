@@ -575,7 +575,7 @@ elif islem == "Kaydedilen İşlemler":
         data = kayitlar_sheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, use_container_width=True, hide_index=True)
                     # --- BUTON YERLEŞİMLERİ ---
 
             col_ex1, col_ex2 = st.columns([1, 1])
