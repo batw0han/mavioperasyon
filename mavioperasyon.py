@@ -11,17 +11,20 @@ import os
 # Bu kısım bağlantıyı ve veriyi hafızada tutar, hızı 10 kat artırır.
 
 @st.cache_resource
-def get_gsheet_client():
+def get_spreadsheet_cached():
+    """Bağlantıyı ve Spreadsheet dosyasını bir kez açar, hafızada tutar."""
     creds_dict = st.secrets["gcp_service_account"]
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    return gspread.authorize(creds)
+    client = gspread.authorize(creds)
+    return client.open("Mavioperasyon_Database")
 
-@st.cache_data(ttl=600) # Verileri 10 dakika hafızada tutar
+@st.cache_data(ttl=600)
 def load_data_cached(sheet_name):
-    client = get_gsheet_client()
-    spreadsheet = client.open("Mavioperasyon_Database")
-    return spreadsheet.worksheet(sheet_name).get_all_records()
+    """Verileri hafızaya alır, 10 dakika boyunca Google'a gitmez."""
+    ss = get_spreadsheet_cached() # Artık burası saniyelik çalışır
+    sheet = ss.worksheet(sheet_name)
+    return sheet.get_all_records()
 
 # Veri yazıldığında hafızayı tazelemek için
 def clear_cache():
