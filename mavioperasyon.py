@@ -599,7 +599,7 @@ elif islem == "Kaydedilen İşlemler":
                         st.rerun()
                 else:
                     st.warning("⚠️ Arşivi temizleme yetkiniz bulunmamaktadır. Lütfen yönetici ile görüşün.")
-            else:
+        else:
             st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
 
 
