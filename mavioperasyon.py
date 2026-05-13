@@ -120,8 +120,11 @@ st.set_page_config(
     layout="centered"
 )
 
-def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi):
+def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi, hedef_sheet=None):
     try:
+        if hedef_sheet is None:
+            hedef_sheet = spreadsheet.worksheet("t_kayitlari")
+        
         yeni_kayit_satiri = [
             islem_adi, 
             kategori, 
