@@ -360,17 +360,31 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             liman = st.text_input("Gümrük/Liman:", value="HAVA/DİĞER", key="diger_liman_input")
 
     # --- 6. MİKTAR VE TUTAR ---
-    col_f1, col_f2 = st.columns(2)
+    st.divider()
+    col_f1, col_f2, col_f3 = st.columns([2, 2, 1])
     with col_f1:
         miktar = st.number_input("Miktar:", min_value=0.0)
         birim = st.radio("Birim:", ["KG", "LT"], horizontal=True)
     with col_f2:
         toplam_tutar = st.number_input("Toplam Fatura Tutarı ($):", min_value=0.0)
+    with col_f3:
+        para_birimi = st.selectbox("Para Birimi:", ["$", "€", "₺", "£"], key="para_birimi_sec")
 
     # --- 7. KAYIT ---
-    if st.button("KAYDET", use_container_width=True):
-        # Burada her şeyi CSV'ye kaydedeceğiz kanka
-        st.success("Kayıt başarıyla oluşturuldu. Dashboard'da analiz edilmeye hazır!")
+    if st.button("💾 SİPARİŞİ KAYDET VE ARŞİVLE", use_container_width=True):
+        if tedarikci == "" or miktar == 0:
+            st.error("Lütfen cari seçimi yapın ve miktar girin!")
+        else:
+            # Buradaki sonuc kısmına para birimini de ekliyoruz
+            kaydet(
+                islem_adi=f"Sipariş: {tedarikci}",
+                kategori=f"{islem_ana_tipi} - {islem_sekli}",
+                girdiler=f"{miktar} {birim} {urun_secimi}",
+                sonuc=f"{toplam_tutar} {para_birimi}", # Artık seçtiğin simgeyle kaydedecek
+                personel_adi=st.session_state.user_name
+            )
+            st.success(f"Sipariş {para_birimi} bazında başarıyla kaydedildi! 🚀")
+            st.balloons()
 else:
     islem = st.selectbox(
         "📂 MENÜ",
