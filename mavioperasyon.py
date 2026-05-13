@@ -36,6 +36,7 @@ cari_sheet = spreadsheet.worksheet("cari_listesi")
 urun_sheet = spreadsheet.worksheet("urun_listesi")
 kayitlar_sheet = spreadsheet.worksheet("t_kayitlari")
 kullanici_sheet = spreadsheet.worksheet("kullanicilar")
+p_kayitlar_sheet = spreadsheet.worksheet("p_kayitlari")
 
 # --- SESSION STATE BAŞLATMA ---
 # Cari Listesi Yükleme
@@ -131,9 +132,9 @@ def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi):
             personel_adi
         ]
         # Veriyi Google Sheets'e basıyoruz
-        kayitlar_sheet.append_row(yeni_kayit_satiri)
+        hedef_sheet.append_row(yeni_kayit_satiri)
         clear_cache()
-        st.toast("Veri başarıyla iletildi! ✅")
+        st.toast("Veri başarıyla kaydedildi ✅")
     except Exception as e:
         st.error(f"Veri yazılamadı: {e}")
 # --- LOGO VE GÖRSEL HAZIRLIK ---
@@ -384,6 +385,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
                 girdiler=f"{miktar} {birim} {urun_secimi}",
                 sonuc=f"{toplam_tutar} {para_birimi}",
                 personel_adi=st.session_state.user_name
+                hedef_sheet=p_kayitlar_sheet
             )
             st.success(f" {invoice_no} no'lu kayıt başarıyla oluşturuldu")
 else:
