@@ -59,19 +59,21 @@ if not st.session_state.authenticated:
         sifre_giris = st.text_input("Şifre:", type="password")
         
         if st.button("Giriş Yap"):
-            user_data = kullanici_sheet.get_all_records()
-            # Kullanıcıyı bulalım
-            user = next((item for item in user_data if str(item["kullanici_adi"]) == giris_ad and str(item["sifre"]) == sifre_giris), None)
-            
-            if user:
-                st.session_state.authenticated = True
-                st.session_state.user_name = user["kullanici_adi"]
-                st.session_state.user_role = user["yetki_seviyesi"] # Yetkiyi de hafızaya alıyoruz
-                st.rerun()
+            if giris_ad and sifre_giris: # Önce alanlar dolu mu diye bakıyoruz
+                user_data = kullanici_sheet.get_all_records()
+                # Kullanıcıyı bulalım
+                user = next((item for item in user_data if str(item["kullanici_adi"]) == giris_ad and str(item["sifre"]) == sifre_giris), None)
+                
+                if user:
+                    st.session_state.authenticated = True
+                    st.session_state.user_name = user["kullanici_adi"]
+                    st.session_state.user_role = user["yetki_seviyesi"] 
+                    st.success(f"Hoş geldin, {st.session_state.user_name}!")
+                    st.rerun()
+                else:
+                    st.error("Hatalı Kullanıcı Adı veya Şifre!")
             else:
-                st.error("Hatalı Giriş!")
-        else:
-            st.warning("Lütfen şifrenizi giriniz.")
+                st.warning("Lütfen tüm alanları doldurun.")
     else:
         st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         st.divider()
