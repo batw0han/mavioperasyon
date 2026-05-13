@@ -96,26 +96,19 @@ st.set_page_config(
     layout="centered"
 )
 
-DB_FILE = "operasyon_kayitlari.csv"
-
 def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi):
-    yeni_kayit = {
-        "Kaydedilen Ad": islem_adi,
-        "İşlem Kategorisi": kategori,
-        "Girdiler": girdiler,
-        "Sonuç": sonuc,
-        "Tarih": datetime.now().strftime("%d.%m.%Y"),
-        "Saat": datetime.now().strftime("%H:%M"),
-        "İşlemi Yapan": personel_adi
-    }
-    
-    if os.path.exists(DB_FILE):
-        df = pd.read_csv(DB_FILE)
-        df = pd.concat([df, pd.DataFrame([yeni_kayit])], ignore_index=True)
-    else:
-        df = pd.DataFrame([yeni_kayit])
-    
-    df.to_csv(DB_FILE, index=False)
+    def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi):
+        yeni_kayit_satiri = [
+            islem_adi, 
+            kategori, 
+            girdiler, 
+            sonuc, 
+            datetime.now().strftime("%d.%m.%Y"), 
+            datetime.now().strftime("%H:%M"), 
+            personel_adi
+        ]
+        # Google Sheets'e en alta yeni satır olarak ekle
+        kayitlar_sheet.append_row(yeni_kayit_satiri)
 
 # --- LOGO VE GÖRSEL HAZIRLIK ---
 def get_image_base64(file_path):
@@ -553,11 +546,14 @@ elif islem == "Kaydedilen İşlemler":
         st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
     else:
         st.markdown("### 📜 Kaydedilen İşlemler")
-        if os.path.exists(DB_FILE):
-            df = pd.read_csv(DB_FILE)
+        # Sayfadaki tüm verileri çek ve DataFrame yap
+        data = kayitlar_sheet.get_all_records()
+        if data:
+            df = pd.DataFrame(data)
             st.dataframe(df, use_container_width=True)
-
-            st.divider()
+            # Excel indirme butonu aynı kalabilir, df'i zaten yukarıda oluşturduk.
+        else:
+            st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
 
             # --- BUTON YERLEŞİMLERİ ---
 
