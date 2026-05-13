@@ -97,7 +97,7 @@ st.set_page_config(
 )
 
 def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi):
-    def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi):
+    try:
         yeni_kayit_satiri = [
             islem_adi, 
             kategori, 
@@ -107,9 +107,11 @@ def kaydet(islem_adi, kategori, girdiler, sonuc, personel_adi):
             datetime.now().strftime("%H:%M"), 
             personel_adi
         ]
-        # Google Sheets'e en alta yeni satır olarak ekle
+        # Veriyi Google Sheets'e basıyoruz
         kayitlar_sheet.append_row(yeni_kayit_satiri)
-
+        st.toast("Veri başarıyla iletildi! ✅")
+    except Exception as e:
+        st.error(f"Veri yazılamadı: {e}")
 # --- LOGO VE GÖRSEL HAZIRLIK ---
 def get_image_base64(file_path):
     with open(file_path, "rb") as img_file:
