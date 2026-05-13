@@ -70,8 +70,8 @@ if not st.session_state.authenticated:
                 st.rerun()
             else:
                 st.error("Hatalı Giriş!")
-            else:
-                st.warning("Lütfen şifrenizi giriniz.")
+        else:
+            st.warning("Lütfen şifrenizi giriniz.")
     else:
         st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         st.divider()
