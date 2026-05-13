@@ -74,26 +74,29 @@ if not st.session_state.authenticated:
                     st.error("Hatalı Kullanıcı Adı veya Şifre!")
             else:
                 st.warning("Lütfen tüm alanları doldurun.")
-    else:
-        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
+else:
+    with st.sidebar:
+        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}** ({st.session_state.user_role})")
         st.divider()
 
-        if st.sidebar.button("Kayıtlı İşlemleri Görüntüle", use_container_width=True):
+        if st.button("Kayıtlı İşlemleri Görüntüle", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kaydedilen İşlemler"
             st.rerun()
         
         if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
-            if st.sidebar.button("Ana Menüye Dön", use_container_width=True):
+            if st.button("Ana Menüye Dön", use_container_width=True):
                 st.session_state.sayfa_yonetimi = "Ana Sayfa"
                 st.rerun()
 
-        if st.sidebar.button("Yeni Sipariş Oluştur", use_container_width=True):
+        if st.button("Yeni Sipariş Oluştur", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Yeni Sipariş"
             st.rerun()
         
-        if st.button("Güvenli Çıkış"):
+        st.divider()
+        if st.button("Güvenli Çıkış", type="primary", use_container_width=True):
             st.session_state.authenticated = False
             st.session_state.user_name = ""
+            st.session_state.user_role = ""
             st.session_state.sayfa_yonetimi = "Ana Sayfa"
             st.rerun()
 
