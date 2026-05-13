@@ -574,8 +574,6 @@ elif islem == "Kaydedilen İşlemler":
                     os.remove(DB_FILE)
                     st.warning("Arşiv başarıyla temizlendi.")
                     st.rerun()
-        else:
-            st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
 
 st.write("")
 st.caption("© 2026 Mavi Plastik Kimya San ve Tic. A.Ş. | Batuhan KILIÇ")
