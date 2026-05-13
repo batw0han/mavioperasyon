@@ -76,7 +76,7 @@ if not st.session_state.authenticated:
                 st.warning("Lütfen tüm alanları doldurun.")
 else:
     with st.sidebar:
-        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}** ({st.session_state.user_role})")
+        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         st.divider()
 
         if st.button("Kayıtlı İşlemleri Görüntüle", use_container_width=True):
