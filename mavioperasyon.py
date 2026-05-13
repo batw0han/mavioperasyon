@@ -11,9 +11,9 @@ CARI_DOSYASI = "cari_listesi.csv"
 if "cari_listesi" not in st.session_state:
     if os.path.exists(CARI_DOSYASI):
         try:
-            st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='utf-8').to_dict('records')
+            st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='cp1254').to_dict('records')
         except UnicodeDecodeError:
-            st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='iso-8859-9').to_dict('records')
+            st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='utf-8-sig').to_dict('records')
     else:
         # Önce boş bir liste tanımlıyoruz ki hata vermesin
         st.session_state.cari_listesi = [] 
