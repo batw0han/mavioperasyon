@@ -220,7 +220,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             with st.container(border=True):
                 c_detay1, c_detay2 = st.columns([3, 1])
                 with c_detay1:
-                    st.markdown(f"**📍 Kayıtlı Adres:**\n{cari_detay.get('adres', 'Adres Bilgisi Yok')}")
+                    st.markdown(f"**Adres:**\n{cari_detay.get('adres', 'Adres Bilgisi Yok')}")
                 with c_detay2:
                     st.caption("✅ Veritabanı Onaylı")
         else:
