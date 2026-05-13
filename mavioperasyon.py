@@ -1,36 +1,40 @@
 import streamlit as st
 import base64
+import gspread
+from google.oauth2.service_account import Credentials
 from PIL import Image
 import pandas as pd
 from datetime import datetime
 import os
 
+# --- GOOGLE SHEETS BAĞLANTI AYARLARI ---
+def get_gsheet_client():
+    # Streamlit Secrets
+    creds_dict = st.secrets["gcp_service_account"]
+    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    return gspread.authorize(creds)
+
+client = get_gsheet_client()
+SHEET_NAME = "Mavioperasyon_Database"
+spreadsheet = client.open(SHEET_NAME)
+
+cari_sheet = spreadsheet.worksheet("cari_listesi")
+urun_sheet = spreadsheet.worksheet("urun_listesi")
+kayitlar_sheet = spreadsheet.worksheet("operasyon_kayitlar")
+
 # --- SESSION STATE BAŞLATMA ---
-CARI_DOSYASI = "cari_listesi.csv"
-
+# Cari Listesi Yükleme
 if "cari_listesi" not in st.session_state:
-    if os.path.exists(CARI_DOSYASI):
-        try:
-            st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='utf-8-sig').to_dict('records')
-        except UnicodeDecodeError:
-            st.session_state.cari_listesi = pd.read_csv(CARI_DOSYASI, encoding='cp1254').to_dict('records')
-    else:
-        # Önce boş bir liste tanımlıyoruz ki hata vermesin
-        st.session_state.cari_listesi = [] 
-        pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False)
+    # Google Sheets'ten tüm veriyi çek ve sözlüğe çevir
+    st.session_state.cari_listesi = cari_sheet.get_all_records()
 
-URUN_DOSYASI = "urun_listesi.csv"
-
+# Ürün Listesi Yükleme
 if "urun_listesi" not in st.session_state:
-    if os.path.exists(URUN_DOSYASI):
-        # Dosya varsa oradan oku
-        df_u = pd.read_csv(URUN_DOSYASI)
-        st.session_state.urun_listesi = df_u["urun_adi"].tolist()
-    else:
-        # Dosya yoksa başlangıç listesini oluştur ve kaydet
-        initial_list = ["Methanol", "Ethyl Acetate", "IPA", "Isobuthanol"]
-        st.session_state.urun_listesi = sorted(initial_list)
-        pd.DataFrame({"urun_adi": st.session_state.urun_listesi}).to_csv(URUN_DOSYASI, index=False)
+    # Ürün listesini sütun olarak çek (ilk satır başlık olduğu için [1:] yapıyoruz)
+    # Eğer sayfada sadece 'urun_adi' sütunu varsa col_values(1) yeterli
+    st.session_state.urun_listesi = sorted(urun_sheet.col_values(1)[1:])
+
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "user_name" not in st.session_state:
@@ -235,13 +239,14 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
         y_adres = st.text_area("Cari Adresi:", key="y_cari_adres")
         if st.button("Cariyi Rehbere İşle", use_container_width=True):
             if y_cari and y_adres:
-                yeni_kayit = {"cari_adi": y_cari, "adres": y_adres}
-                st.session_state.cari_listesi.append(yeni_kayit)
-                # Kaydederken sig (BOM) kullanıyoruz ki Excel ve Python karakterleri bozmasın
-                pd.DataFrame(st.session_state.cari_listesi).to_csv(CARI_DOSYASI, index=False, encoding='utf-8-sig')
-                st.success(f"{y_cari} rehbere eklendi!")
+                yeni_satir = [y_cari, y_adres]
+                # Google Sheets'e yeni satır ekle
+                cari_sheet.append_row(yeni_satir) 
+        
+                # Session state'i tazele (ekrandaki liste de güncellensin)
+                st.session_state.cari_listesi = cari_sheet.get_all_records()
+                st.success(f"{y_cari} Google Sheets'e kaydedildi!")
                 st.rerun()
-
     st.divider()
 
     col_islem1, col_islem2 = st.columns(2)
@@ -285,18 +290,13 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             urun_adi = st.text_input("Ürün Adını Ekleyin:", key="yeni_urun_input")
             if st.button("Listeye Ekle"):
                 if urun_adi and urun_adi not in st.session_state.urun_listesi:
-                    # 1. Listeye ekle ve sırala
+                    # Google Sheets'e ekle
+                    urun_sheet.append_row([urun_adi])
+        
+                    # Session state'i güncelle
                     st.session_state.urun_listesi.append(urun_adi)
                     st.session_state.urun_listesi.sort()
-                    
-                    # 2. KALICILIK: Dosyaya kaydet (F5 yapınca gitmez)
-                    pd.DataFrame({"urun_adi": st.session_state.urun_listesi}).to_csv(URUN_DOSYASI, index=False)
-                    
-                    # 3. OTOMATİK DÖNÜŞ: Checkbox'ı kapatmak için session_state değerini zorla değiştiriyoruz
-                    # Not: Checkbox'ın 'key' parametresi "yeni_urun_check_key" olmalı
-                    st.session_state.yeni_urun_check_key = False 
-                    
-                    st.success(f"{urun_adi} kalıcı olarak eklendi!")
+                    st.success(f"{urun_adi} ürün listesine eklendi!")
                     st.rerun()
         else:
             urun_secimi = st.selectbox("Ürün Seçiniz:", st.session_state.urun_listesi)
