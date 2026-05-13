@@ -224,9 +224,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
 
     
     
-    # --- 1. TEMEL FİRMA VE İŞLEM BİLGİSİ ---
-    st.subheader("🏢 Firma Bilgileri")
-    
+    # --- 1. TEMEL FİRMA VE İŞLEM BİLGİSİ ---    
     firmalar = [c["cari_adi"] for c in st.session_state.cari_listesi]
     
     # Akıllı Arama ve Seçim Kutusu
