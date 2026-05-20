@@ -122,22 +122,22 @@ else:
             
         st.divider()
 
-        if st.button("🛒 Yeni Sipariş Oluştur", use_container_width=True):
+        if st.button(" Yeni Sipariş Oluştur", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Yeni Sipariş"
             st.rerun()
 
-        if st.button("📦 Kayıtlı Siparişleri Görüntüle", use_container_width=True):
+        if st.button(" Kayıtlı Siparişleri Görüntüle", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kayıtlı Siparişler"
             st.rerun()
 
         st.divider()
 
         # İşte yeni butonlarımız kanka, her şeyi ayırdık!
-        if st.button("🧮 Hesaplama Araçları", use_container_width=True):
+        if st.button("Hesaplama Araçları", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Hesaplama Araçları"
             st.rerun()
 
-        if st.button("📜 Hesaplama Arşivi", use_container_width=True):
+        if st.button("Hesaplama Arşivi", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kaydedilen İşlemler"
             st.rerun()
         
