@@ -113,20 +113,30 @@ if not st.session_state.authenticated:
                 st.warning("Lütfen tüm alanları doldurun.")
 else:
     with st.sidebar:
-        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
+        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}** ({st.session_state.get('user_role', 'personel')})")
         st.divider()
 
-        if st.button("Kayıtlı İşlemleri Görüntüle", use_container_width=True):
+        # --- NAVİGASYON BUTONLARI ---
+        # 1. Her durumda gözüken Ana Menü butonu (Sorunu kökten çözdük)
+        if st.button("🏠 Ana Menüye Dön", use_container_width=True):
+            st.session_state.sayfa_yonetimi = "Ana Sayfa"
+            st.rerun()
+            
+        st.divider()
+
+        # 2. Yeni Sipariş Ekranı Butonu
+        if st.button("➕ Yeni Sipariş Oluştur", use_container_width=True):
+            st.session_state.sayfa_yonetimi = "Yeni Sipariş"
+            st.rerun()
+
+        # 3. Hesaplama Arşivi (Eski t_kayitlari)
+        if st.button("🧮 Kayıtlı Hesaplama İşlemleri", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kaydedilen İşlemler"
             st.rerun()
-        
-        if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
-            if st.button("Ana Menüye Dön", use_container_width=True):
-                st.session_state.sayfa_yonetimi = "Ana Sayfa"
-                st.rerun()
 
-        if st.button("Yeni Sipariş Oluştur", use_container_width=True):
-            st.session_state.sayfa_yonetimi = "Yeni Sipariş"
+        # 4. YENİ BOMBA: Sipariş Takip ve Düzenleme Ekranı (p_kayitlari)
+        if st.button("📦 Kayıtlı Siparişleri Görüntüle", use_container_width=True):
+            st.session_state.sayfa_yonetimi = "Kayıtlı Siparişler"
             st.rerun()
         
         st.divider()
