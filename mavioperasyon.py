@@ -578,7 +578,7 @@ elif islem == "Kaydedilen İşlemler":
     if not st.session_state.authenticated:
         st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
     else:
-        st.markdown("### 📜 Kaydedilen İşlemler (Geçici Analiz Arşivi)")
+        st.markdown("### 📜 Kaydedilen Hesaplama İşlemleri")
         data = load_data_cached("t_kayitlari")
         if data:
             df = pd.DataFrame(data)
