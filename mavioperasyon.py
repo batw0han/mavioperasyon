@@ -236,7 +236,7 @@ def to_excel(df):
     return processed_data
 
 # =====================================================================
-# --- 🏛️ ANA MENÜ VE SAYFA GÖSTERİM YÖNETİMİ ---
+# --- 🏛️ ANA MENÜ VE SAYFA GÖSTERİM YÖNETİMİ (TEMİZLENMİŞ V3) ---
 # =====================================================================
 
 islem = None
@@ -432,7 +432,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             )
             st.success(f"Sipariş, Invoice No: {invoice_no} ile p_kayitlari sayfasına başarıyla işlendi! 🚀")
 
-# --- 3. SEÇENEK: 📦 📦 📦 KAYITLY SİPARİŞLERİ GÖRÜNTÜLEME EKRANI (Tek ve Net) ---
+# --- 3. SEÇENEK: KAYITLI SİPARİŞLERİ GÖRÜNTÜLEME EKRANI ---
 elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
     if not st.session_state.authenticated:
         st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
@@ -484,58 +484,6 @@ else:
             "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"
         ]
     )
-
-# 📦 YENİ EKRAN: KAYITLI SİPARİŞLERİ GÖRÜNTÜLEME (İşte burayı araya ekliyoruz!)
-elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
-    if not st.session_state.authenticated:
-        st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
-    else:
-        st.markdown("### 📦 Kayıtlı Sipariş Takip Otomasyonu")
-        st.caption("Yeni Sipariş ekranından girilen tüm gerçek operasyon kayıtları burada listelenir.")
-        
-        siparis_data = load_data_cached("p_kayitlari")
-        
-        if siparis_data:
-            df_siparis = pd.DataFrame(siparis_data)
-            st.dataframe(df_siparis, use_container_width=True, hide_index=True)
-            
-            st.divider()
-            col_sip1, col_sip2 = st.columns(2)
-            with col_sip1:
-                excel_sip = to_excel(df_siparis)
-                st.download_button(
-                    label="📥 Sipariş Listesini Excel'e Aktar",
-                    data=excel_sip,
-                    file_name=f"Mavi_Kimya_Siparisler_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-                    use_container_width=True
-                )
-            with col_sip2:
-                if st.session_state.get("user_role") == "admin":
-                    if st.button("🔴 Sipariş Arşivini Sıfırla", use_container_width=True):
-                        rows_to_del = len(p_kayitlar_sheet.get_all_values())
-                        if rows_to_del > 1:
-                            p_kayitlar_sheet.delete_rows(2, rows_to_del)
-                            clear_cache()
-                            st.warning("Gerçek sipariş arşivi başarıyla temizlendi.")
-                            st.rerun()
-                else:
-                    st.info("ℹ️ Sipariş silme/düzenleme yetkileri sadece Yönetici (Admin) hesabına tanımlıdır.")
-        else:
-            st.info("📭 Henüz kaydedilmiş bir sipariş operasyonu bulunmuyor.")
-
-else:
-    islem = st.selectbox(
-        "📂 MENÜ",
-        [
-            "Ardiye Hesaplama",
-            "KG -> LT Çevirme",
-            "LT -> KG Çevirme",
-            "Yoğunluk Hesaplama",
-            "Denatürasyon Hesaplama (Yeni Sipariş)",
-            "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"
-        ]
-    )
-
 # --- İŞLEM MANTIKLARI ---
 if islem == "Ardiye Hesaplama":
     antrepo = st.radio("Antrepo Seçin:", ["İzgin Antrepo", "Koruma Antrepo"], horizontal=True)
