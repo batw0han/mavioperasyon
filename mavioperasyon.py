@@ -55,12 +55,6 @@ if "user_name" not in st.session_state:
 if "sayfa_yonetimi" not in st.session_state:
     st.session_state.sayfa_yonetimi = "Ana Sayfa"
 
-# --- ŞİFRE VE KULLANICI EŞLEŞTİRMESİ ---
-SIFRE_REHBERI = {
-    "Mavi2026": "Batuhan",
-    "ErcanMavi26": "Ercan",
-    "MustiMavi26": "Mustafa"
-}
 
 # --- GİRİŞ PANELİ ---
 kullanici_sheet = spreadsheet.worksheet("kullanicilar")
