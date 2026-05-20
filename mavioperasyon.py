@@ -112,7 +112,7 @@ if not st.session_state.authenticated:
                 st.warning("Lütfen tüm alanları doldurun.")
 else:
     with st.sidebar:
-        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}** ({st.session_state.get('user_role', 'personel')})")
+        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**})")
         st.divider()
 
         # --- YENİ NAVİGASYON DÜZENİ ---
