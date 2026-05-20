@@ -116,7 +116,7 @@ else:
         st.divider()
 
         # --- YENİ NAVİGASYON DÜZENİ ---
-        if st.button("📊 Yönetim Dashboard (Ana Sayfa)", use_container_width=True):
+        if st.button("Ana Sayfa)", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Ana Sayfa"
             st.rerun()
             
@@ -193,7 +193,7 @@ def to_excel(df):
 
 # --- 🌟 YENİ SEÇENEK: SADE VE TASLAK DASHBOARD (ANA SAYFA) ---
 if st.session_state.sayfa_yonetimi == "Ana Sayfa":
-    st.markdown("### 📊 Mavi Kimya Yönetim Dashboard Panel")
+    st.markdown("### Genel özet")
     st.caption("Şirket genel operasyonel durumunu gösteren ana kontrol merkezi.")
     
     # Taslak KPI Kartları (Sade ve yormayan cinsten kanka)
