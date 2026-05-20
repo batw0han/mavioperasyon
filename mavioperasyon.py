@@ -117,7 +117,7 @@ else:
         st.divider()
 
         # --- NAVİGASYON BUTONLARI ---
-        # 1. Her durumda gözüken Ana Menü butonu (Sorunu kökten çözdük)
+        # 1. Ana Menü Butonu
         if st.button("🏠 Ana Menüye Dön", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Ana Sayfa"
             st.rerun()
@@ -129,12 +129,12 @@ else:
             st.session_state.sayfa_yonetimi = "Yeni Sipariş"
             st.rerun()
 
-        # 3. Hesaplama Arşivi (Eski t_kayitlari)
+        # 3. Hesaplama Arşivi (t_kayitlari)
         if st.button("🧮 Kayıtlı Hesaplama İşlemleri", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kaydedilen İşlemler"
             st.rerun()
 
-        # 4. YENİ BOMBA: Sipariş Takip ve Düzenleme Ekranı (p_kayitlari)
+        # 4. Sipariş Takip ve Düzenleme Ekranı (p_kayitlari)
         if st.button("📦 Kayıtlı Siparişleri Görüntüle", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kayıtlı Siparişler"
             st.rerun()
@@ -617,6 +617,56 @@ elif islem == "Kaydedilen İşlemler":
                     st.warning("⚠️ Arşivi temizleme yetkiniz bulunmamaktadır.")
         else:
             st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
+# --- 📦 YENİ EKRAN: KAYITLI SİPARİŞLERİ GÖRÜNTÜLEME ---
+elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
+    if not st.session_state.authenticated:
+        st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
+    else:
+        st.markdown("### 📦 Kayıtlı Sipariş Takip Otomasyonu")
+        st.caption("Yeni Sipariş ekranından girilen tüm gerçek operasyon kayıtları burada listelenir.")
+        
+        # Turbo mod ile p_kayitlari sayfasını çekiyoruz
+        siparis_data = load_data_cached("p_kayitlari")
+        
+        if siparis_data:
+            df_siparis = pd.DataFrame(siparis_data)
+            
+            # Siparişleri şık bir tablo olarak gösteriyoruz
+            st.dataframe(
+                df_siparis, 
+                use_container_width=True, 
+                hide_index=True
+            )
+            
+            st.divider()
+            
+            # --- AKSİYON BUTONLARI ---
+            col_sip1, col_sip2 = st.columns(2)
+            with col_sip1:
+                # Excel olarak indirme motoru
+                excel_sip = to_excel(df_siparis)
+                st.download_button(
+                    label="📥 Sipariş Listesini Excel'e Aktar",
+                    data=excel_sip,
+                    file_name=f"Mavi_Kimya_Siparisler_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+                
+            with col_sip2:
+                # Yetki Kontrolü ile Sipariş Arşivi Temizleme
+                if st.session_state.get("user_role") == "admin":
+                    if st.button("🔴 Sipariş Arşivini Sıfırla", use_container_width=True):
+                        rows_to_del = len(p_kayitlar_sheet.get_all_values())
+                        if rows_to_del > 1:
+                            p_kayitlar_sheet.delete_rows(2, rows_to_del)
+                            clear_cache()
+                            st.warning("Gerçek sipariş arşivi başarıyla temizlendi.")
+                            st.rerun()
+                else:
+                    st.info("ℹ️ Sipariş silme/düzenleme yetkileri sadece Yönetici (Admin) hesabına tanımlıdır.")
+        else:
+            st.info("📭 Henüz kaydedilmiş bir sipariş operasyonu bulunmuyor. 'Yeni Sipariş Oluştur' ekranından ekleme yapabilirsiniz.")
 
 st.write("")
 st.caption("© 2026 Mavi Plastik Kimya San ve Tic. A.Ş. | Batuhan KILIÇ")
