@@ -208,7 +208,7 @@ if st.session_state.sayfa_yonetimi == "Ana Sayfa":
     st.divider()
     st.info("💡 **Gelecek Güncelleme Notu:** Bu alanda dairesel grafikler (Pie Chart) ile ithalat/ihracat oranları ve gümrükteki araçların durum yüzdeleri canlı olarak listelenecektir.")
 
-# --- 🛒 SEÇENEK: YENİ SİPARİŞ OLUŞTURMA EKRANI ---
+# ---  YENİ SİPARİŞ OLUŞTURMA EKRANI ---
 elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
     st.markdown("### 🏛️ Sipariş ve Gümrük İşlemleri Yönetimi")
     
@@ -231,7 +231,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
         tedarikci = ""
         st.info("İşlem yapmak için lütfen listeden bir firma seçin.")
 
-    with st.expander("➕ Yeni Cari Kaydet"):
+    with st.expander(" Yeni Cari Kaydet"):
         y_cari = st.text_input("Yeni Cari Adı:", key="y_cari_input")
         y_adres = st.text_area("Cari Adresi:", key="y_cari_adres")
         if st.button("Cariyi Rehbere İşle", use_container_width=True):
@@ -274,7 +274,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             st.warning(f"🏦 Vergi Son Ödeme Tarihi: {vade_tarihi.strftime('%d.%m.%Y')}")
 
     st.divider()
-    st.markdown("#### 📦 Ürün ve Sevkiyat Detayları")
+    st.markdown("####  Ürün ve Sevkiyat Detayları")
     
     col_u1, col_u2 = st.columns([3, 1])
     with col_u2:
@@ -354,7 +354,7 @@ elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
     if not st.session_state.authenticated:
         st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
     else:
-        st.markdown("### 📦 Kayıtlı Sipariş Takip Otomasyonu")
+        st.markdown("###  Kaydedilen Siparişler")
         st.caption("Yeni Sipariş ekranından girilen tüm gerçek operasyon kayıtları burada listelenir.")
         
         siparis_data = load_data_cached("p_kayitlari")
@@ -383,7 +383,7 @@ elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
 
 # --- 🧮 YENİ SEÇENEK: HESAPLAMA ARAÇLARI (ESKİ ANA SAYFA BURADA!) ---
 elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
-    st.markdown("### 🧮 Hızlı Hesaplama ve Operasyon Araçları")
+    st.markdown("###  Hesaplama ve Operasyon Araçları")
     
     islem = st.selectbox(
         "🛠️ Lütfen Yapmak İstediğiniz İşlemi Seçin:",
@@ -510,9 +510,9 @@ elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
                 tba_durum = "UYGUN ✅" if abs(tba - tba_res) <= (tba_res * 0.1) else "HATALI ❌"
                 sonuc_karti_bas(tba_durum, "Tersiyer Butanol", [{"label": "Gereken", "value": f"{tba_res:.2f} gr"}, {"label": "Girdiğiniz", "value": f"{tba:.2f} gr"}])
 
-# --- 📜 SEÇENEK: HESAPLAMA ARŞİVİ (t_kayitlari) ---
+# --- SEÇENEK: HESAPLAMA ARŞİVİ (t_kayitlari) ---
 elif st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
-    st.markdown("### 📜 Kaydedilen Hesaplama İşlemleri")
+    st.markdown("### Kaydedilen Hesaplama İşlemleri")
     data = load_data_cached("t_kayitlari")
     if data:
         df = pd.DataFrame(data)
