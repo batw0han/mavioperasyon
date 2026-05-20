@@ -13,7 +13,7 @@ import os
 @st.cache_resource
 def get_spreadsheet_cached():
     """Bağlantıyı ve Spreadsheet dosyasını bir kez açar, hafızada tutar."""
-    try
+    try:
         creds_dict = st.secrets["gcp_service_account"]
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
