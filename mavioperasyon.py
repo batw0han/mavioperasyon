@@ -13,18 +13,53 @@ import os
 @st.cache_resource
 def get_spreadsheet_cached():
     """Bağlantıyı ve Spreadsheet dosyasını bir kez açar, hafızada tutar."""
-    creds_dict = st.secrets["gcp_service_account"]
-    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    client = gspread.authorize(creds)
-    return client.open("Mavioperasyon_Database")
+    try
+        creds_dict = st.secrets["gcp_service_account"]
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        client = gspread.authorize(creds)
+        return client.open("Mavioperasyon_Database")
+    except Exception as e:
+        st.error(f"Bağlantı Hatası: {e}")
+        return None
 
+@st.cache_resource
+def get_all_sheets():
+    """
+    Tüm sayfaları (worksheet) tek seferde hafızaya alır.
+    İşte 429 hatasını tarihe gömen sinsi formül burası!
+    """
+    ss = get_spreadsheet_cached()
+    if ss:
+        return {
+            "cari": ss.worksheet("cari_listesi"),
+            "urun": ss.worksheet("urun_listesi"),
+            "t_kayit": ss.worksheet("t_kayitlari"),
+            "kullanici": ss.worksheet("kullanicilar"),
+            "p_kayit": ss.worksheet("p_kayitlari")
+        }
+    return {}
+
+sheets_dict = get_all_sheets()
+
+# Eski değişken isimlerin bozulmasın diye buraya eşitliyoruz kanka:
+if sheets_dict:
+    cari_sheet = sheets_dict["cari"]
+    urun_sheet = sheets_dict["urun"]
+    kayitlar_sheet = sheets_dict["t_kayit"]
+    kullanici_sheet = sheets_dict["kullanici"]
+    p_kayitlar_sheet = sheets_dict["p_kayit"]
+else:
+    st.error("🚨 Google Sheets sayfalarına erişilemedi!")
+
+# --- VERİ OKUMA CACHE FONKSİYONU ---
 @st.cache_data(ttl=600)
 def load_data_cached(sheet_name):
-    """Verileri hafızaya alır, 10 dakika boyunca Google'a gitmez."""
-    ss = get_spreadsheet_cached() # Artık burası saniyelik çalışır
-    sheet = ss.worksheet(sheet_name)
-    return sheet.get_all_records()
+    """Verileri 10 dakika RAM'de tutar, Google'ı yormaz."""
+    ss = get_spreadsheet_cached()
+    if ss:
+        return ss.worksheet(sheet_name).get_all_records()
+    return []
 
 # Veri yazıldığında hafızayı tazelemek için
 def clear_cache():
