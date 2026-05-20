@@ -235,11 +235,50 @@ def to_excel(df):
     processed_data = output.getvalue()
     return processed_data
 
-# --- ANA MENÜ ---
+# =====================================================================
+# --- 🏛️ ANA MENÜ VE SAYFA GÖSTERİM YÖNETİMİ ---
+# =====================================================================
+
 islem = None
+
+# --- 1. SEÇENEK: KAYITLI HESAPLAMA İŞLEMLERİ (t_kayitlari) ---
 if st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
     islem = "Kaydedilen İşlemler"
     st.info("Şu an Arşiv kayıtlarını görüntülüyorsunuz. Menüye dönmek için sol taraftaki 'Ana Menüye Dön' butonuna basabilirsiniz.")
+    
+    if not st.session_state.authenticated:
+        st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
+    else:
+        st.markdown("### 📜 Kaydedilen İşlemler (Geçici Analiz Arşivi)")
+        data = load_data_cached("t_kayitlari")
+        if data:
+            df = pd.DataFrame(data)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+            col_ex1, col_ex2 = st.columns([1, 1])
+            with col_ex1:
+                excel_data = to_excel(df)
+                st.download_button(
+                    label="📥 Excel'e Aktar (İndir)",
+                    data=excel_data,
+                    file_name=f"Mavi_Kimya_Arsiv_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            with col_ex2:
+                if st.session_state.user_role == "admin":
+                    if st.button("🔴 Arşivi Temizle", use_container_width=True):
+                        rows_to_del = len(kayitlar_sheet.get_all_values())
+                        if rows_to_del > 1:
+                            kayitlar_sheet.delete_rows(2, rows_to_del)
+                            clear_cache()
+                            st.rerun()
+                else:
+                    st.warning("⚠️ Arşivi temizleme yetkiniz bulunmamaktadır.")
+        else:
+            st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
+
+# --- 2. SEÇENEK: YENİ SİPARİŞ OLUŞTURMA EKRANI ---
 elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
     st.markdown("### 🏛️ Sipariş ve Gümrük İşlemleri Yönetimi")
     
@@ -276,15 +315,14 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             if y_cari and y_adres:
                 yeni_satir = [y_cari, y_adres]
                 cari_sheet.append_row(yeni_satir) 
-                clear_cache() # Cache temizleyerek güncel veriyi zorluyoruz
+                clear_cache()
                 st.session_state.cari_listesi = cari_sheet.get_all_records()
                 st.success(f"{y_cari} Google Sheets'e kaydedildi!")
                 st.rerun()
 
     st.divider()
 
-    # --- 🛠️ 2. YENİ TASARIM DİLİ: 2'Lİ SATIR VE FATURA TARİHİ ---
-    # Üst Satır: İşlem Bilgileri
+    # --- 2. İŞLEM VE FATURA BİLGİLERİ ---
     col_ust1, col_ust2 = st.columns(2)
     with col_ust1:
         islem_ana_tipi = st.selectbox("İşlem Türü:", ["İthalat", "İhracat"], key="islem_ana_tip")
@@ -296,7 +334,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
             islem_sekli = st.selectbox("İhracat Şekli:", ["İhracat", "Transit Ticaret", "Devir"])
             beyanname_var_mi = False
 
-    # Alt Satır: Fatura Bilgileri (İstediğin şık 2'li düzen kanka)
     col_alt1, col_alt2 = st.columns(2)
     with col_alt1:
         fatura_tarihi = st.date_input("📅 Fatura Tarihi:", value=datetime.now())
@@ -375,7 +412,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
         miktar = st.number_input("Miktar:", min_value=0.0)
         birim = st.radio("Birim:", ["KG", "LT"], horizontal=True)
     with col_f2:
-        toplam_tutar = st.number_input("Toplam Fatura Tutarı ($):", min_value=0.0)
+        toplam_tutar = st.number_input("Toplam Fatura Tutarı:", min_value=0.0)
     with col_f3:
         para_birimi = st.selectbox("Para Birimi:", ["$", "€", "₺", "£"], key="para_birimi_sec")
 
@@ -391,9 +428,62 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
                 girdiler=f"F.Tarihi: {f_tarih_str} | {miktar} {birim} {urun_secimi}",
                 sonuc=f"{toplam_tutar} {para_birimi}",
                 personel_adi=st.session_state.user_name,
-                hedef_sheet=p_kayitlar_sheet # Doğrudan sipariş sayfasına yazıyoruz!
+                hedef_sheet=p_kayitlar_sheet
             )
             st.success(f"Sipariş, Invoice No: {invoice_no} ile p_kayitlari sayfasına başarıyla işlendi! 🚀")
+
+# --- 3. SEÇENEK: 📦 📦 📦 KAYITLY SİPARİŞLERİ GÖRÜNTÜLEME EKRANI (Tek ve Net) ---
+elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
+    if not st.session_state.authenticated:
+        st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
+    else:
+        st.markdown("### 📦 Kayıtlı Sipariş Takip Otomasyonu")
+        st.caption("Yeni Sipariş ekranından girilen tüm gerçek operasyon kayıtları burada listelenir.")
+        
+        siparis_data = load_data_cached("p_kayitlari")
+        
+        if siparis_data:
+            df_siparis = pd.DataFrame(siparis_data)
+            st.dataframe(df_siparis, use_container_width=True, hide_index=True)
+            
+            st.divider()
+            col_sip1, col_sip2 = st.columns(2)
+            with col_sip1:
+                excel_sip = to_excel(df_siparis)
+                st.download_button(
+                    label="📥 Sipariş Listesini Excel'e Aktar",
+                    data=excel_sip,
+                    file_name=f"Mavi_Kimya_Siparisler_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            with col_sip2:
+                if st.session_state.get("user_role") == "admin":
+                    if st.button("🔴 Sipariş Arşivini Sıfırla", use_container_width=True):
+                        rows_to_del = len(p_kayitlar_sheet.get_all_values())
+                        if rows_to_del > 1:
+                            p_kayitlar_sheet.delete_rows(2, rows_to_del)
+                            clear_cache()
+                            st.warning("Gerçek sipariş arşivi başarıyla temizlendi.")
+                            st.rerun()
+                else:
+                    st.info("ℹ️ Sipariş silme/düzenleme yetkileri sadece Yönetici (Admin) hesabına tanımlıdır.")
+        else:
+            st.info("📭 Henüz kaydedilmiş bir sipariş operasyonu bulunmuyor. 'Yeni Sipariş Oluştur' ekranından ekleme yapabilirsiniz.")
+
+# --- 4. SEÇENEK: HİÇBİR BUTONA BASILMADIYSA (ANA SAYFA - SELECTBOX MENÜSÜ) ---
+else:
+    islem = st.selectbox(
+        "📂 MENÜ",
+        [
+            "Ardiye Hesaplama",
+            "KG -> LT Çevirme",
+            "LT -> KG Çevirme",
+            "Yoğunluk Hesaplama",
+            "Denatürasyon Hesaplama (Yeni Sipariş)",
+            "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"
+        ]
+    )
 
 # 📦 YENİ EKRAN: KAYITLI SİPARİŞLERİ GÖRÜNTÜLEME (İşte burayı araya ekliyoruz!)
 elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
