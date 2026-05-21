@@ -116,7 +116,7 @@ else:
         st.divider()
 
         # --- YENİ NAVİGASYON DÜZENİ ---
-        if st.button("Ana Sayfa)", use_container_width=True):
+        if st.button("Ana Sayfa", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Ana Sayfa"
             st.rerun()
             
@@ -132,7 +132,7 @@ else:
 
         st.divider()
 
-        # İşte yeni butonlarımız kanka, her şeyi ayırdık!
+        # BUTONLAR
         if st.button("Hesaplama Araçları", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Hesaplama Araçları"
             st.rerun()
@@ -188,10 +188,10 @@ def to_excel(df):
     return output.getvalue()
 
 # =====================================================================
-# --- 🏛️ MERKEZİ SAYFA GÖSTERİM YÖNETİMİ (V4 BEZOS EDITION) ---
+# --- 🏛️ MERKEZİ SAYFA GÖSTERİM YÖNETİMİ ---
 # =====================================================================
 
-# --- 🌟 YENİ SEÇENEK: SADE VE TASLAK DASHBOARD (ANA SAYFA) ---
+# --- 🌟 SADE VE TASLAK DASHBOARD (ANA SAYFA) ---
 if st.session_state.sayfa_yonetimi == "Ana Sayfa":
     st.markdown("### Genel özet")
     st.caption("Şirket genel operasyonel durumunu gösteren ana kontrol merkezi.")
