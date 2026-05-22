@@ -50,8 +50,8 @@ if sheets_dict:
     cari_sheet = sheets_dict["cari"]
     urun_sheet = sheets_dict["urun"]
     kayitlar_sheet = sheets_dict["t_kayit"]
-    kullanici_sheet = sheets_dict["kullanicilar"]
-    p_kayitlar_sheet = sheets_dict["p_kayitlari"]
+    kullanici_sheet = sheets_dict["kullanici"]
+    p_kayitlar_sheet = sheets_dict["p_kayit"]
 else:
     st.error("🚨 Google Sheets sayfalarına erişilemedi!")
 
