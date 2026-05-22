@@ -354,7 +354,6 @@ elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
         st.error("Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
     else:
         st.markdown("### Kayıtlı Sipariş Takip Otomasyonu")
-        st.caption("Yeni Sipariş ekranından girilen tüm gerçek operasyon kayıtları burada listelenir.")
         
         siparis_data = load_data_cached("p_kayitlari")
         if siparis_data:
