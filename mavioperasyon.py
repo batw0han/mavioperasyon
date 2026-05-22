@@ -476,7 +476,7 @@ elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
                     eski_durum = str(s_satir.get(durum_key, "Açık")).strip()
                     chk_kapanis = st.checkbox("🚨 BEYANNAME KAPANDI (Operasyonu Tamamla)", value=(eski_durum.lower() == "kapandı"))
 
-                    submit_guncelle = st.form_submit_button("DEĞİŞİKLİKLERİ KAYDET", use_container_width=True)
+                    submit_guncelle = st.form_submit_button("DEĞİŞİKLİKLERİ GOOGLE SHEETS'E KAYDET", use_container_width=True)
                     
                     if submit_guncelle:
                         v_tarih_guncel = (guncel_b_tarih + dt.timedelta(days=30)).strftime("%d.%m.%Y") if guncel_b_no else ""
