@@ -120,7 +120,7 @@ with st.sidebar:
                 st.warning("Lütfen tüm alanları doldurun.")
                 
         st.divider()
-        st.info("ℹ️ Giriş yapmadan sadece sağ taraftaki hesaplama araçlarını kullanabilirsiniz. Sipariş ve gümrük yönetimi için login olunuz.")
+        st.info("ℹ️ Giriş yapmadan sadece sağ taraftaki hesaplama araçlarını kullanabilirsiniz. Sipariş ve gümrük yönetimi için giriş yapınız.")
     else:
         st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         st.divider()
