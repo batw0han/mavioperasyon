@@ -169,7 +169,7 @@ def guncelle_mevcut_siparis(invoice_no, guncel_data_dict):
         headers = all_rows[0]
         
         # Anahtar sütun indeksini bul (Sipariş ID / Invoice No)
-        id_index = headers.index("Sipariş ID / Invoice No")
+        id_index = 0
         
         row_num = -1
         for i, r in enumerate(all_rows):
