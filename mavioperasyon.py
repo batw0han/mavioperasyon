@@ -236,7 +236,7 @@ def to_excel(df):
 
 # --- 🧮 1. SEÇENEK: HESAPLAMA ARAÇLARI (💡 HIERARSIDE EN USTE ALINDI - GİRİŞSİZ AÇIK) ---
 if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
-    st.markdown("### Hızlı Hesaplama ve Operasyon Araçları")
+    st.markdown("### Hesaplama Araçları")
     islem = st.selectbox("Lütfen Yapmak İstediğiniz İşlemi Seçin:", ["Ardiye Hesaplama", "KG -> LT Çevirme", "LT -> KG Çevirme", "Yoğunluk Hesaplama", "Denatürasyon Hesaplama (Yeni Sipariş)", "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"], key="hesap_select_box")
 
     if islem == "Ardiye Hesaplama":
