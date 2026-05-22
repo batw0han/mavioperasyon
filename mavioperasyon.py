@@ -50,8 +50,8 @@ if sheets_dict:
     cari_sheet = sheets_dict["cari"]
     urun_sheet = sheets_dict["urun"]
     kayitlar_sheet = sheets_dict["t_kayit"]
-    kullanici_sheet = sheets_dict["kullanici"]
-    p_kayitlar_sheet = sheets_dict["p_kayit"]
+    kullanici_sheet = sheets_dict["kullanicilar"]
+    p_kayitlar_sheet = sheets_dict["p_kayitlari"]
 else:
     st.error("🚨 Google Sheets sayfalarına erişilemedi!")
 
@@ -91,7 +91,7 @@ if "sayfa_yonetimi" not in st.session_state:
 # --- GİRİŞ PANELİ ---
 if not st.session_state.authenticated:
     with st.sidebar:
-        st.markdown("### 🔐 Personel Girişi")
+        st.markdown("### Giriş Paneli")
         giris_ad = st.text_input("Kullanıcı Adı:")
         sifre_giris = st.text_input("Şifre:", type="password")
         
@@ -112,31 +112,32 @@ if not st.session_state.authenticated:
                 st.warning("Lütfen tüm alanları doldurun.")
 else:
     with st.sidebar:
-        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}** ({st.session_state.get('user_role', 'personel')})")
+        # Rol eki ((admin) veya (personel)) tamamen kaldırıldı, sadece isim kalıyor kanka
+        st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         st.divider()
 
-        # --- NAVİGASYON DÜZENİ ---
-        if st.button("📊 Yönetim Dashboard (Ana Sayfa)", use_container_width=True):
+        # --- YENİ EMOJİSİZ VE SADE NAVİGASYON ---
+        if st.button("Ana Sayfa", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Ana Sayfa"
             st.rerun()
             
         st.divider()
 
-        if st.button("🛒 Yeni Sipariş Oluştur", use_container_width=True):
+        if st.button("Yeni Sipariş Oluştur", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Yeni Sipariş"
             st.rerun()
 
-        if st.button("📦 Kayıtlı Siparişleri Görüntüle", use_container_width=True):
+        if st.button("Kayıtlı Siparişleri Görüntüle", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kayıtlı Siparişler"
             st.rerun()
 
         st.divider()
 
-        if st.button("🧮 Hesaplama Araçları", use_container_width=True):
+        if st.button("Hesaplama Araçları", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Hesaplama Araçları"
             st.rerun()
 
-        if st.button("📜 Hesaplama Arşivi", use_container_width=True):
+        if st.button("Hesaplama Arşivi", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Kaydedilen İşlemler"
             st.rerun()
         
@@ -190,9 +191,9 @@ def to_excel(df):
 # --- 🏛️ MERKEZİ SAYFA GÖSTERİM YÖNETİMİ ---
 # =====================================================================
 
-# --- 🌟 SEÇENEK: SADE VE TASLAK DASHBOARD (ANA SAYFA) ---
+# --- SEÇENEK: ANA SAYFA ---
 if st.session_state.sayfa_yonetimi == "Ana Sayfa":
-    st.markdown("### 📊 Mavi Kimya Yönetim Dashboard Panel")
+    st.markdown("### Mavi Kimya Yönetim Panel")
     st.caption("Şirket genel operasyonel durumunu gösteren ana kontrol merkezi.")
     
     kpi1, kpi2, kpi3 = st.columns(3)
@@ -206,9 +207,9 @@ if st.session_state.sayfa_yonetimi == "Ana Sayfa":
     st.divider()
     st.info("💡 **Gelecek Güncelleme Notu:** Bu alanda dairesel grafikler (Pie Chart) ile ithalat/ihracat oranları ve gümrükteki araçların durum yüzdeleri canlı olarak listelenecektir.")
 
-# --- 🛒 SEÇENEK: YENİ SİPARİŞ OLUŞTURMA EKRANI ---
+# --- SEÇENEK: YENİ SİPARİŞ OLUŞTURMA EKRANI ---
 elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
-    st.markdown("### ### 🏛️ Sipariş ve Gümrük İşlemleri Yönetimi")
+    st.markdown("### Sipariş ve Gümrük İşlemleri Yönetimi")
     
     firmalar = [c.get("cari_adi") for c in st.session_state.cari_listesi if "cari_adi" in c]
     secilen_cari_adi = st.selectbox("Cari Adı Ara / Seç:", options=[""] + sorted(firmalar), format_func=lambda x: "Firma seçmek için yazmaya başlayın..." if x == "" else x, key="akilli_cari_secim")
@@ -229,7 +230,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
         tedarikci = ""
         st.info("İşlem yapmak için lütfen listeden bir firma seçin.")
 
-    with st.expander("➕ Yeni Cari Kaydet"):
+    with st.expander("Yeni Cari Kaydet"):
         y_cari = st.text_input("Yeni Cari Adı:", key="y_cari_input")
         y_adres = st.text_area("Cari Adresi:", key="y_cari_adres")
         if st.button("Cariyi Rehbere İşle", use_container_width=True):
@@ -255,12 +256,12 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
 
     col_alt1, col_alt2 = st.columns(2)
     with col_alt1:
-        fatura_tarihi = st.date_input("📅 Fatura Tarihi:", value=datetime.now())
+        fatura_tarihi = st.date_input("Fatura Tarihi:", value=datetime.now())
     with col_alt2:
-        invoice_no = st.text_input("📄 Invoice No:", placeholder="Örn: MAVI-2026-001")
+        invoice_no = st.text_input("Invoice No:", placeholder="Örn: MAVI-2026-001")
 
     if beyanname_var_mi:
-        st.info("📑 Beyanname Detayları")
+        st.info("Beyanname Detayları")
         b_col1, b_col2, b_col3 = st.columns(3)
         with b_col1:
             beyanname_no = st.text_input("Beyanname No:", placeholder="Örn: 2606...")
@@ -269,10 +270,10 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
         with b_col3:
             kapanis_tarihi = st.date_input("Beyanname Kapanış Tarihi")
             vade_tarihi = kapanis_tarihi + dt.timedelta(days=30)
-            st.warning(f"🏦 Vergi Son Ödeme Tarihi: {vade_tarihi.strftime('%d.%m.%Y')}")
+            st.warning(f"Vergi Son Ödeme Tarihi: {vade_tarihi.strftime('%d.%m.%Y')}")
 
     st.divider()
-    st.markdown("#### 📦 Ürün ve Sevkiyat Detayları")
+    st.markdown("#### Sipariş ve Sevkiyat Detayları")
     
     col_u1, col_u2 = st.columns([3, 1])
     with col_u2:
@@ -332,9 +333,9 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
     with col_f3:
         para_birimi = st.selectbox("Para Birimi:", ["$", "€", "₺", "£"], key="para_birimi_sec")
 
-    if st.button("💾 SİPARİŞİ KAYDET VE ARŞİVLE", use_container_width=True):
+    if st.button("SİPARİŞİ KAYDET VE ARŞİVLE", use_container_width=True):
         if tedarikci == "" or miktar == 0 or invoice_no == "":
-            st.error("Lütfen Firma Seçimi, Miktar ve Invoice No alanlarını boş bırakmayın!")
+            st.error("Lütfen Firma Seçimi, Miktar 및 Invoice No alanlarını boş bırakmayın!")
         else:
             f_tarih_str = fatura_tarihi.strftime("%d.%m.%Y")
             kaydet(
@@ -345,39 +346,35 @@ elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
                 personel_adi=st.session_state.user_name,
                 hedef_sheet=p_kayitlar_sheet
             )
-            st.success(f"Sipariş, Invoice No: {invoice_no} ile p_kayitlari sayfasına başarıyla işlendi! 🚀")
+            st.success(f"Sipariş, Invoice No: {invoice_no} ile Google Sheets'e başarıyla işlendi! 🚀")
 
-# --- 📦 SEÇENEK: KAYITLI SİPARİŞLERİ GÖRÜNTÜLEME EKRANI (p_kayitlari) ---
+# --- SEÇENEK: KAYITLI SİPARİŞLERİ GÖRÜNTÜLEME EKRANI ---
 elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
     if not st.session_state.authenticated:
-        st.error("🚫 Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
+        st.error("Bu alanı görüntülemek için yetkiniz yok. Lütfen sol panelden giriş yapınız.")
     else:
-        st.markdown("### 📦 Kayıtlı Sipariş Takip Otomasyonu")
+        st.markdown("### Kayıtlı Sipariş Takip Otomasyonu")
         st.caption("Yeni Sipariş ekranından girilen tüm gerçek operasyon kayıtları burada listelenir.")
         
         siparis_data = load_data_cached("p_kayitlari")
         if siparis_data:
-            # 🛠️ BAŞLIK HATASI ÇÖZÜMÜ: Eğer veri geliyorsa düzgün kolon isimleriyle DataFrame yapıyoruz
+            # 💡 OTOMATİK BAŞLIK GÜNCELLEMESİ: Elle kolon sabitleme kaldırıldı. 
+            # Google Sheets'e yazdığın ilk satırdaki başlık isimleri direkt buraya yansıyacak kanka.
             df_siparis = pd.DataFrame(siparis_data)
-            
-            # Kolon başlıklarını manuel eşitleyerek kaymayı kalıcı olarak önlüyoruz
-            df_siparis.columns = ["Kayıt İsmi", "Yapılan İşlem", "Miktar", "İşlem Sonucu", "Tarih", "Saat", "Yapan Kullanıcı"]
-            
             st.dataframe(df_siparis, use_container_width=True, hide_index=True)
             
             st.divider()
-            # 🔴 GÜVENLİK GÜNCELLEMESİ: Silme butonu tamamen kaldırıldı, sadece Excel indirme kaldı!
             excel_sip = to_excel(df_siparis)
-            st.download_button(label="📥 Sipariş Listesini Excel'e Aktar (İndir)", data=excel_sip, file_name=f"Mavi_Kimya_Siparisler_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
+            st.download_button(label="Sipariş Listesini Excel'e Aktar (İndir)", data=excel_sip, file_name=f"Mavi_Kimya_Siparisler_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
         else:
-            st.info("📭 Henüz kaydedilmiş bir sipariş operasyonu bulunmuyor.")
+            st.info("Henüz kaydedilmiş bir sipariş operasyonu bulunmuyor.")
 
-# --- 🧮 SEÇENEK: HESAPLAMA ARAÇLARI ---
+# --- SEÇENEK: HESAPLAMA ARAÇLARI ---
 elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
-    st.markdown("### 🧮 Hızlı Hesaplama ve Operasyon Araçları")
+    st.markdown("### Hızlı Hesaplama ve Operasyon Araçları")
     
     islem = st.selectbox(
-        "🛠️ Lütfen Yapmak İstediğiniz İşlemi Seçin:",
+        "Lütfen Yapmak İstediğiniz İşlemi Seçin:",
         ["Ardiye Hesaplama", "KG -> LT Çevirme", "LT -> KG Çevirme", "Yoğunluk Hesaplama", "Denatürasyon Hesaplama (Yeni Sipariş)", "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"],
         key="hesaplama_araclari_select"
     )
@@ -403,7 +400,7 @@ elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
             carpan = 13 if antrepo == "İzgin Antrepo" else 9
             toplam = m3 * carpan
 
-            st.markdown("### 📊 İşlem Sonucu")
+            st.markdown("### İşlem Sonucu")
             res_c1, res_c2 = st.columns(2)
             res_c1.metric("Toplam Hacim", f"{m3:.3f} m³")
             res_c2.metric("Toplam Bedel", f"{toplam:.2f} $", delta=f"{antrepo} Tarifesi")
@@ -413,14 +410,14 @@ elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
 
         if "son_hesaplama" in st.session_state:
             st.divider()
-            with st.expander("💾 Bu İşlemi Arşive Kaydet"):
+            with st.expander("Bu İşlemi Arşive Kaydet"):
                 with st.form("kayit_formu", clear_on_submit=True):
                     kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: 10 Araç Metanol")
                     submit_button = st.form_submit_button("KAYDI ONAYLA", use_container_width=True)
 
                     if submit_button:
-                        if not st.session_state.authenticated: st.error("❌ Yetkisiz İşlem! Önce giriş yapın.")
-                        elif not kayit_ismi: st.warning("⚠️ Lütfen işlem için bir isim giriniz.")
+                        if not st.session_state.authenticated: st.error("Yetkisiz İşlem! Önce giriş yapın.")
+                        elif not kayit_ismi: st.warning("Lütfen işlem için bir isim giriniz.")
                         else:
                             data = st.session_state.son_hesaplama
                             with st.status("Veri buluta işleniyor...", expanded=False) as status:
@@ -448,17 +445,17 @@ elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
                 yogunluk = kg_deger / lt_deger
                 st.markdown("---")
                 st.metric(label="Hesaplanan Yoğunluk (g/cm³)", value=f"{yogunluk:.4f}")
-                if 0.70 <= yogunluk <= 1.20: st.success("ℹ️ Standart sıvı kimyasal aralığında bir değer tespit edildi.")
-                else: st.warning("⚠️ Dikkat: Bu yoğunluk değeri alışılmışın dışında.")
+                if 0.70 <= yogunluk <= 1.20: st.success("Standart sıvı kimyasal aralığında bir değer tespit edildi.")
+                else: st.warning("Dikkat: Bu yoğunluk değeri alışılmışın dışında.")
             else: st.error("Hacim (LT) değeri 0 olamaz!")
 
     elif islem == "Denatürasyon Hesaplama (Yeni Sipariş)":
         tip = st.selectbox("Reçete Tipi:", ["K Tipi", "D Tipi", "Metanol Denatürasyonu"])
-        miktar = st.number_input("Saf Ürün Hacmi (LT):", min_value=0.0)
+        miktar = miktar = st.number_input("Saf Ürün Hacmi (LT):", min_value=0.0)
         detay = ""
         if st.button("REÇETEYİ HAZIRLA", use_container_width=True):
             carpan = miktar / 100
-            st.markdown("### 📝 Hazırlanacak Reçete")
+            st.markdown("### Hazırlanacak Reçete")
             if tip == "K Tipi": detay = f"D. Benzoat: {0.8 * carpan:.2f} gr | TBA: {78 * carpan:.2f} gr"
             elif tip == "D Tipi": detay = f"IPA: {5 * carpan:.2f} kg | TBA: {78 * carpan:.2f} gr"
             else: detay = f"D. Benzoat: {3 * carpan:.2f} gr"
@@ -467,10 +464,10 @@ elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
 
         if "son_hesaplama" in st.session_state:
             st.divider()
-            with st.expander("💾 Bu Reçeteyi Arşive Kaydet"):
+            with st.expander("Bu Reçeteyi Arşive Kaydet"):
                 kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: Farmed 20 Tonluk Tank Hazırlığı")
                 if st.button("REÇETEYİ ONAYLA", use_container_width=True):
-                    if not st.session_state.authenticated: st.error("❌ Yetkisiz İşlem! Lütfen önce giriş yapınız.")
+                    if not st.session_state.authenticated: st.error("Yetkisiz İşlem! Lütfen önce giriş yapınız.")
                     else:
                         if kayit_ismi:
                             data = st.session_state.son_hesaplama
@@ -492,20 +489,18 @@ elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
                 tba_durum = "UYGUN ✅" if abs(tba - tba_res) <= (tba_res * 0.1) else "HATALI ❌"
                 sonuc_karti_bas(tba_durum, "Tersiyer Butanol", [{"label": "Gereken", "value": f"{tba_res:.2f} gr"}, {"label": "Girdiğiniz", "value": f"{tba:.2f} gr"}])
 
-# --- 📜 SEÇENEK: HESAPLAMA ARŞİVİ (t_kayitlari) ---
+# --- SEÇENEK: HESAPLAMA ARŞİVİ ---
 elif st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
-    st.markdown("### 📜 Kaydedilen Hesaplama İşlemleri")
+    st.markdown("### Kaydedilen Hesaplama İşlemleri")
     data = load_data_cached("t_kayitlari")
     if data:
-        # 🛠️ BAŞLIK HATASI ÇÖZÜMÜ: Hesaplama arşivi için de başlıkları manuel kilitliyoruz kanka
+        # 💡 OTOMATİK BAŞLIK GÜNCELLEMESİ: Hesaplama arşivi için de başlıklar otomatik tablodan beslenecek.
         df = pd.DataFrame(data)
-        df.columns = ["Kayıt İsmi", "Yapılan İşlem", "Miktar", "İşlem Sonucu", "Tarih", "Saat", "Yapan Kullanıcı"]
-        
         st.dataframe(df, use_container_width=True, hide_index=True)
         
-        # 🔴 GÜVENLİK GÜNCELLEMESİ: Silme butonu tamamen kaldırıldı, sadece Excel indirme kaldı!
+        st.divider()
         excel_data = to_excel(df)
-        st.download_button(label="📥 Excel'e Aktar (İndir)", data=excel_data, file_name=f"Mavi_Kimya_Arsiv_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
+        st.download_button(label="Excel'e Aktar (İndir)", data=excel_data, file_name=f"Mavi_Kimya_Arsiv_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
     else:
         st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
 
