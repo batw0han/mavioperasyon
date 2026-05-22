@@ -86,9 +86,14 @@ if "authenticated" not in st.session_state:
 if "user_name" not in st.session_state:
     st.session_state.user_name = ""
 
-# 💡 KRİTİK DEĞİŞİKLİK: Eğer giriş yapılmadıysa varsayılan sayfa "Hesaplama Araçları" olur!
-if "sayfa_yonetimi" not in st.session_state:
+# --- 🔒 GÜVENLİK FİLTRESİ VE SAYFA YÖNLENDİRME ---
+# Kullanıcı giriş yapmadıysa ne seçerse seçsin sistem "Hesaplama Araçları" sayfasına kilitlenir!
+if not st.session_state.authenticated:
     st.session_state.sayfa_yonetimi = "Hesaplama Araçları"
+else:
+    if "sayfa_yonetimi" not in st.session_state or st.session_state.sayfa_yonetimi == "Hesaplama Araçları" and not st.session_state.get("init_done"):
+        st.session_state.sayfa_yonetimi = "Ana Sayfa"
+        st.session_state.init_done = True
 
 # --- GİRİŞ PANELİ VE SİDEBAR NAVİGASYON ---
 with st.sidebar:
@@ -106,7 +111,6 @@ with st.sidebar:
                     st.session_state.authenticated = True
                     st.session_state.user_name = user["kullanici_adi"]
                     st.session_state.user_role = user["yetki_seviyesi"] 
-                    # Giriş yapıldığı an ana sayfaya (Dashboard'a) yönlendiriyoruz kanka
                     st.session_state.sayfa_yonetimi = "Ana Sayfa"
                     st.success(f"Hoş geldin, {st.session_state.user_name}!")
                     st.rerun()
@@ -116,12 +120,11 @@ with st.sidebar:
                 st.warning("Lütfen tüm alanları doldurun.")
                 
         st.divider()
-        st.info("ℹ️ Giriş yapmadan sadece üstteki hesaplama araçlarını kullanabilirsiniz. Sipariş ve gümrük yönetimi için login olunuz.")
+        st.info("ℹ️ Giriş yapmadan sadece sağ taraftaki hesaplama araçlarını kullanabilirsiniz. Sipariş ve gümrük yönetimi için login olunuz.")
     else:
         st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         st.divider()
 
-        # --- YENİ NAVİGASYON DÜZENİ ---
         if st.button("Ana Sayfa", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Ana Sayfa"
             st.rerun()
@@ -151,7 +154,7 @@ with st.sidebar:
             st.session_state.authenticated = False
             st.session_state.user_name = ""
             st.session_state.user_role = ""
-            # Çıkış yapınca tekrar hesaplama araçlarına fırlatıyoruz kanka
+            st.session_state.init_done = False
             st.session_state.sayfa_yonetimi = "Hesaplama Araçları"
             st.rerun()
 
@@ -231,288 +234,8 @@ def to_excel(df):
 # --- 🏛️ MERKEZİ SAYFA GÖSTERİM YÖNETİMİ ---
 # =====================================================================
 
-# --- 1. SAYFA: ANA SAYFA (DASHBOARD - SADECE YETKİLİ GÖRÜR) ---
-if st.session_state.sayfa_yonetimi == "Ana Sayfa":
-    if not st.session_state.authenticated:
-        st.error("Bu alanı görüntülemek için yetkiniz yok. Lütfen giriş yapınız.")
-    else:
-        st.markdown("### Mavi Kimya Yönetim Panel")
-        st.caption("Şirket genel operasyonel durumunu gösteren ana kontrol merkezi.")
-        
-        siparis_listesi = load_data_cached("p_kayitlari")
-        df_siparisler = pd.DataFrame(siparis_listesi) if siparis_listesi else pd.DataFrame()
-        
-        acik_beyanname_sayisi = 0
-        kritik_beyannameler = []
-        
-        if not df_siparisler.empty:
-            durum_col = next((c for c in df_siparisler.columns if "durum" in c.lower()), None)
-            vade_col = next((c for c in df_siparisler.columns if "vergi" in c.lower() or "vade" in c.lower()), None)
-            inv_col = df_siparisler.columns[0]
-            b_no_col = next((c for c in df_siparisler.columns if "beyanname no" in c.lower()), None)
-            
-            if durum_col:
-                acik_beyanname_sayisi = len(df_siparisler[df_siparisler[durum_col].str.lower().str.strip() == "açık"])
-                
-            if vade_col and durum_col:
-                bugun = datetime.now().date()
-                for idx, row in df_siparisler.iterrows():
-                    if str(row[durum_col]).lower().strip() == "açık" and row[vade_col]:
-                        try:
-                            vade_tarihi = datetime.strptime(str(row[vade_col]).strip(), "%d.%m.%Y").date()
-                            kalan_gun = (vade_tarihi - bugun).days
-                            if kalan_gun <= 7:
-                                kritik_beyannameler.append({
-                                    "Sipariş / Invoice": row[inv_col],
-                                    "Beyanname No": row[b_no_col] if b_no_col else "-",
-                                    "Son Ödeme Tarihi": row[vade_col],
-                                    "Durum": f"{kalan_gun} Gün Kaldı" if kalan_gun >= 0 else f"SÜRESİ GEÇMİŞ ({abs(kalan_gun)} Gün)"
-                                })
-                        except:
-                            pass
-
-        kpi1, kpi2, kpi3 = st.columns(3)
-        with kpi1:
-            st.metric(label="Açık Beyanname Sayısı", value=str(acik_beyanname_sayisi), delta="Aktif Dosya", delta_color="inverse")
-        with kpi2:
-            st.metric(label="Aylık Toplam Hacim", value=f"{len(df_siparisler)} Sipariş", delta="Toplam Kayıt")
-        with kpi3:
-            st.metric(label="Sistem Hızı (Turbo)", value="Işık Hızı", delta="100% Aktif")
-            
-        st.divider()
-        
-        if kritik_beyannameler:
-            st.markdown("<h4 style='color: #EF4444;'>⚠️ Vergi Son Ödeme Günü Yaklaşan Beyannameler</h4>", unsafe_allow_html=True)
-            st.dataframe(pd.DataFrame(kritik_beyannameler), use_container_width=True, hide_index=True)
-        else:
-            st.success("✅ Önümüzdeki 7 gün içinde ödeme vadesi dolan açık beyanname bulunmuyor.")
-
-# --- 2. SAYFA: YENİ SİPARİŞ OLUŞTURMA ---
-elif st.session_state.sayfa_yonetimi == "Yeni Sipariş":
-    if not st.session_state.authenticated:
-        st.error("Bu alanı görüntülemek için yetkiniz yok. Lütfen giriş yapınız.")
-    else:
-        st.markdown("### Sipariş ve Gümrük İşlemleri Yönetimi")
-        
-        firmalar = [c.get("cari_adi") for c in st.session_state.cari_listesi if "cari_adi" in c]
-        secilen_cari_adi = st.selectbox("Cari Adı Ara / Seç:", options=[""] + sorted(firmalar))
-
-        if secilen_cari_adi:
-            cari_detay = next((item for item in st.session_state.cari_listesi if item.get("cari_adi") == secilen_cari_adi), None)
-            tedarikci = secilen_cari_adi
-            if cari_detay:
-                with st.container(border=True):
-                    st.markdown(f"**Adres:** {cari_detay.get('adres', 'Adres Bilgisi Yok')}")
-        else:
-            tedarikci = ""
-            st.info("İşlem yapmak için lütfen listeden bir firma seçin.")
-
-        st.divider()
-
-        col_ust1, col_ust2 = st.columns(2)
-        with col_ust1:
-            islem_ana_tipi = st.selectbox("İşlem Türü:", ["İthalat", "İhracat"])
-        with col_ust2:
-            islem_sekli = st.selectbox("İşlem Şekli:", ["Kesin İthalat", "Devir (Antrepo)", "Geçici İthalat"] if islem_ana_tipi == "İthalat" else ["İhracat", "Transit Ticaret", "Devir"])
-            beyanname_var_mi = st.checkbox("Beyannamesi Var mı?") if islem_ana_tipi == "İthalat" else False
-
-        col_alt1, col_alt2 = st.columns(2)
-        with col_alt1:
-            fatura_tarihi = st.date_input("Fatura Tarihi:", value=datetime.now())
-        with col_alt2:
-            invoice_no = st.text_input("Invoice No:", placeholder="Örn: MAVI-2026-001")
-
-        b_no, b_tarih_str, b_durum, v_tarih_str = "", "", "Açık", ""
-        
-        if beyanname_var_mi:
-            st.info("Beyanname Detayları")
-            b_col1, b_col2 = st.columns(2)
-            with b_col1:
-                b_no = st.text_input("Beyanname No:", placeholder="Örn: 2606...")
-            with b_col2:
-                b_tarih = st.date_input("Beyanname Tescil Tarihi")
-                b_tarih_str = b_tarih.strftime("%d.%m.%Y")
-                vade_tarihi = b_tarih + dt.timedelta(days=30)
-                v_tarih_str = vade_tarihi.strftime("%d.%m.%Y")
-                st.warning(f"🏦 Vergi Son Ödeme Tarihi: {v_tarih_str}")
-
-        st.divider()
-        st.markdown("#### Sipariş ve Sevkiyat Detayları")
-        urun_secimi = st.selectbox("Ürün Seçiniz:", st.session_state.urun_listesi)
-        
-        col_t1, col_t2, col_t3 = st.columns(3)
-        devir_mi = "Devir" in islem_sekli
-        tasima_sekli = "Kara"
-        
-        with col_t1:
-            tasima_sekli = st.selectbox("Taşıma Şekli:", ["Deniz", "Kara", "Hava", "Demiryolu"]) if not devir_mi else "Devir"
-        with col_t2:
-            incoterm = st.selectbox("Incoterm / Teslim Şekli", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"])
-        with col_t3:
-            liman = st.text_input("Gümrük / Liman:", value="Muratbey")
-
-        bl_no, konteyner_no = "", ""
-        if tasima_sekli == "Deniz":
-            st.markdown("##### ⚓ Denizyolu Konteyner Bilgileri")
-            bl_c1, bl_c2 = st.columns(2)
-            with bl_c1: bl_no = st.text_input("B/L (Bill of Lading) No:")
-            with bl_c2: konteyner_no = st.text_input("Konteyner No:")
-
-        st.divider()
-        col_f1, col_f2, col_f3 = st.columns([2, 2, 1])
-        with col_f1:
-            miktar = st.number_input("Miktar:", min_value=0.0)
-            birim = st.radio("Birim:", ["KG", "LT"], horizontal=True)
-        with col_f2:
-            toplam_tutar = st.number_input("Toplam Fatura Tutarı:", min_value=0.0)
-        with col_f3:
-            para_birimi = st.selectbox("Para Birimi:", ["$", "€", "₺", "£"])
-
-        if st.button("SİPARİŞİ KAYDET VE ARŞİVLE", use_container_width=True):
-            if not tedarikci or miktar == 0 or not invoice_no:
-                st.error("Lütfen Firma Seçimi, Miktar ve Invoice No alanlarını boş bırakmayın!")
-            else:
-                yeni_siparis_verisi = {
-                    "Sipariş ID / Invoice No": invoice_no,
-                    "Kategori / İşlem Türü": f"{islem_ana_tipi} - {islem_sekli}",
-                    "Miktar": str(miktar),
-                    "Birim": birim,
-                    "Ürün Adı": urun_secimi,
-                    "Toplam Tutar": str(toplam_tutar),
-                    "Para Birimi": para_birimi,
-                    "Taşıma Şekli": tasima_sekli,
-                    "Liman / Gümrük": liman,
-                    "Personel": st.session_state.user_name,
-                    "Kayıt Tarihi": fatura_tarihi.strftime("%d.%m.%Y"),
-                    "Beyanname No": b_no,
-                    "Beyanname Tarihi": b_tarih_str,
-                    "Beyanname Durumu": "Açık" if b_no else "",
-                    "Vergi Son Ödeme Tarihi": v_tarih_str,
-                    "B/L No": bl_no,
-                    "Konteyner No": konteyner_no,
-                    "Vitsan Rapor No": "",
-                    "Ardiye Ödendi mi": "Hayır",
-                    "Depozito Ödendi mi": "Hayır",
-                    "Depozito İade Edildi mi": "Hayır"
-                }
-                kaydet_yeni_siparis(yeni_siparis_verisi)
-                st.success(f"Sipariş {invoice_no} başarıyla kaydedildi!")
-                st.rerun()
-
-# --- 3. SAYFA: SİPARİŞ LİSTELEME VE DÜZENLEME ---
-elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
-    if not st.session_state.authenticated:
-        st.error("Bu alanı görüntülemek için yetkiniz yok. Lütfen giriş yapınız.")
-    else:
-        st.markdown("### Kayıtlı Sipariş Takip Otomasyonu")
-        st.caption("Yeni Sipariş ekranından girilen tüm gerçek operasyon kayıtları burada listelenir.")
-        
-        siparis_data = load_data_cached("p_kayitlari")
-        if siparis_data:
-            df_siparis = pd.DataFrame(siparis_data)
-            st.dataframe(df_siparis, use_container_width=True, hide_index=True)
-            
-            st.divider()
-            st.markdown("#### 🔄 Sipariş Detaylarını Düzenle ve Güncelle")
-            
-            ilk_kolon_adi = df_siparis.columns[0] 
-            inv_listesi = df_siparis[ilk_kolon_adi].unique().tolist()
-            secilen_inv = st.selectbox("Düzenlemek İstediğiniz Siparişi Seçin (Invoice No):", options=[""] + inv_listesi)
-            
-            if secilen_inv:
-                s_satir = df_siparis[df_siparis[ilk_kolon_adi] == secilen_inv].iloc[0].to_dict()
-                
-                with st.form("duzenleme_formu"):
-                    st.markdown(f"**📄 Düzenlenen Sipariş:** {secilen_inv}")
-                    
-                    miktar_anahtari = next((k for k in s_satir.keys() if k.lower().strip() == "miktar"), "Miktar")
-                    ham_miktar_verisi = s_satir.get(miktar_anahtari, 0.0)
-                    
-                    try: varsayilan_miktar = float(str(ham_miktar_verisi).replace(",", ".").strip() or 0.0)
-                    except ValueError: varsayilan_miktar = 0.0
-                    
-                    d_col1, d_col2 = st.columns(2)
-                    with d_col1:
-                        guncel_miktar = st.number_input("Miktar:", value=varsayilan_miktar)
-                        b_no_key = next((k for k in s_satir.keys() if "beyanname no" in k.lower()), "Beyanname No")
-                        guncel_b_no = st.text_input("Beyanname No:", value=s_satir.get(b_no_key, ""))
-                    with d_col2:
-                        vitsan_key = next((k for k in s_satir.keys() if "vitsan" in k.lower()), "Vitsan Rapor No")
-                        guncel_vitsan = st.text_input("Vitsan Rapor No:", value=s_satir.get(vitsan_key, ""))
-                        
-                        b_tarih_key = next((k for k in s_satir.keys() if "beyanname tarih" in k.lower()), "Beyanname Tarihi")
-                        b_tar_obj = datetime.now().date()
-                        if s_satir.get(b_tarih_key):
-                            try: b_tar_obj = datetime.strptime(str(s_satir[b_tarih_key]).strip(), "%d.%m.%Y").date()
-                            except: pass
-                        guncel_b_tarih = st.date_input("Beyanname Tescil Tarihi:", value=b_tar_obj)
-
-                    tasima_key = next((k for k in s_satir.keys() if "taşıma" in k.lower() or "tasima" in k.lower()), "Taşıma Şekli")
-                    guncel_bl, guncel_kont = "", ""
-                    if str(s_satir.get(tasima_key)).lower().strip() == "deniz":
-                        st.markdown("##### ⚓ Denizyolu Sevkiyat Güncelleme")
-                        bl_c1, bl_c2 = st.columns(2)
-                        bl_key = next((k for k in s_satir.keys() if "b/l" in k.lower()), "B/L No")
-                        kont_key = next((k for k in s_satir.keys() if "konteyner" in k.lower()), "Konteyner No")
-                        with bl_c1: guncel_bl = st.text_input("B/L No:", value=s_satir.get(bl_key, ""))
-                        with bl_c2: guncel_kont = st.text_input("Konteyner No:", value=s_satir.get(kont_key, ""))
-
-                    st.markdown("##### 🏦 Finansal ve Operasyonel Durumlar")
-                    f_c1, f_c2, f_c3 = st.columns(3)
-                    
-                    ardiye_key = next((k for k in s_satir.keys() if "ardiye" in k.lower()), "Ardiye Ödendi mi")
-                    depozito_key = next((k for k in s_satir.keys() if "depozito ödendi" in k.lower()), "Depozito Ödendi mi")
-                    iade_key = next((k for k in s_satir.keys() if "iade" in k.lower()), "Depozito İade Edildi mi")
-                    durum_key = next((k for k in s_satir.keys() if "durum" in k.lower()), "Beyanname Durumu")
-                    
-                    with f_c1: chk_ardiye = st.checkbox("Ardiye Ödendi", value=(str(s_satir.get(ardiye_key)).strip().lower() == "evet"))
-                    with f_c2: chk_depozito = st.checkbox("Depozito Ödendi", value=(str(s_satir.get(depozito_key)).strip().lower() == "evet"))
-                    with f_c3: chk_iade = st.checkbox("Depozito İade Edildi", value=(str(s_satir.get(iade_key)).strip().lower() == "evet"))
-                    
-                    eski_durum = str(s_satir.get(durum_key, "Açık")).strip()
-                    chk_kapanis = st.checkbox("🚨 BEYANNAME KAPANDI (Operasyonu Tamamla)", value=(eski_durum.lower() == "kapandı"))
-
-                    submit_guncelle = st.form_submit_button("DEĞİŞİKLİKLERİ GOOGLE SHEETS'E KAYDET", use_container_width=True)
-                    
-                    if submit_guncelle:
-                        v_tarih_guncel = (guncel_b_tarih + dt.timedelta(days=30)).strftime("%d.%m.%Y") if guncel_b_no else ""
-                        yeni_durum_str = "Kapandı" if chk_kapanis else ("Açık" if guncel_b_no else "")
-                        
-                        guncel_paket = {
-                            "Miktar": str(guncel_miktar),
-                            "Beyanname No": guncel_b_no,
-                            "Beyanname Tarihi": guncel_b_tarih.strftime("%d.%m.%Y") if guncel_b_no else "",
-                            "Vergi Son Ödeme Tarihi": v_tarih_guncel,
-                            "Vitsan Rapor No": guncel_vitsan,
-                            "B/L No": guncel_bl,
-                            "Konteyner No": guncel_kont,
-                            "Ardiye Ödendi mi": "Evet" if chk_ardiye else "Hayır",
-                            "Depozito Ödendi mi": "Evet" if chk_depozito else "Hayır",
-                            "Depozito İade Edildi mi": "Evet" if chk_iade else "Hayır",
-                            "Beyanname Durumu": yeni_durum_str
-                        }
-                        
-                        if guncelle_mevcut_siparis(secilen_inv, guncel_paket):
-                            if chk_kapanis and eski_durum.lower() != "kapandı":
-                                kaydet(
-                                    islem_adi=f"INV: {secilen_inv} Kapandı",
-                                    kategori="Operasyon Kapanış",
-                                    girdiler=f"{secilen_inv} nolu sipariş arşive çekildi.",
-                                    sonuc=f"siparişin tüm operasyonları tamamlandı",
-                                    personel_adi=st.session_state.user_name,
-                                    hedef_sheet=kayitlar_sheet
-                                )
-                            st.success("Veritabanı başarıyla güncellendi! Sayfa yenileniyor...")
-                            st.rerun()
-
-            st.divider()
-            excel_sip = to_excel(df_siparis)
-            st.download_button(label="Sipariş Listesini Excel'e Aktar (İndir)", data=excel_sip, file_name=f"Mavi_Kimya_Siparisler_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
-        else:
-            st.info("Henüz kaydedilmiş bir sipariş operasyonu bulunmuyor.")
-
-# --- 4. SAYFA: HESAPLAMA ARAÇLARI (💡 ARTIK HERKESE GİRİŞSİZ AÇIK!) ---
-elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
+# --- 🧮 1. SEÇENEK: HESAPLAMA ARAÇLARI (💡 HIERARSIDE EN USTE ALINDI - GİRİŞSİZ AÇIK) ---
+if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
     st.markdown("### Hızlı Hesaplama ve Operasyon Araçları")
     islem = st.selectbox("Lütfen Yapmak İstediğiniz İşlemi Seçin:", ["Ardiye Hesaplama", "KG -> LT Çevirme", "LT -> KG Çevirme", "Yoğunluk Hesaplama", "Denatürasyon Hesaplama (Yeni Sipariş)", "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"], key="hesap_select_box")
 
@@ -545,7 +268,6 @@ elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
             girdi_notu = f"{kg_input} KG" if giris_tipi == "Kilogram (KG)" else f"{lt_input} LT"
             st.session_state.son_hesaplama = {"kategori": "Ardiye Hesaplama", "girdi": girdi_notu, "sonuc": f"{m3:.3f} m³ / {toplam:.2f} $"}
 
-        # 🔐 GÜVENLİK FİLTRESİ: Sadece giriş yapmış olan personel buluta arşive ekleyebilir!
         if "son_hesaplama" in st.session_state:
             st.divider()
             if not st.session_state.authenticated:
@@ -630,21 +352,289 @@ elif st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
                 tba_durum = "UYGUN ✅" if abs(tba - tba_res) <= (tba_res * 0.1) else "HATALI ❌"
                 sonuc_karti_bas(tba_durum, "Tersiyer Butanol", [{"label": "Gereken", "value": f"{tba_res:.2f} gr"}, {"label": "Girdiğiniz", "value": f"{tba:.2f} gr"}])
 
-# --- 5. SAYFA: HESAPLAMA ARŞİVİ ---
-elif st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler":
-    if not st.session_state.authenticated:
-        st.error("Bu alanı görüntülemek için yetkiniz yok. Lütfen giriş yapınız.")
+# --- 📊 2. SEÇENEK: ANA SAYFA (DASHBOARD - YALNIZCA GİRİŞLİ PERSONEL GÖRÜR) ---
+elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authenticated:
+    st.markdown("### Mavi Kimya Yönetim Panel")
+    st.caption("Şirket genel operasyonel durumunu gösteren ana kontrol merkezi.")
+    
+    siparis_listesi = load_data_cached("p_kayitlari")
+    df_siparisler = pd.DataFrame(siparis_listesi) if siparis_listesi else pd.DataFrame()
+    
+    acik_beyanname_sayisi = 0
+    kritik_beyannameler = []
+    
+    if not df_siparisler.empty:
+        durum_col = next((c for c in df_siparisler.columns if "durum" in c.lower()), None)
+        vade_col = next((c for c in df_siparisler.columns if "vergi" in c.lower() or "vade" in c.lower()), None)
+        inv_col = df_siparisler.columns[0]
+        b_no_col = next((c for c in df_siparisler.columns if "beyanname no" in c.lower()), None)
+        
+        if durum_col:
+            acik_beyanname_sayisi = len(df_siparisler[df_siparisler[durum_col].str.lower().str.strip() == "açık"])
+            
+        if vade_col and durum_col:
+            bugun = datetime.now().date()
+            for idx, row in df_siparisler.iterrows():
+                if str(row[durum_col]).lower().strip() == "açık" and row[vade_col]:
+                    try:
+                        vade_tarihi = datetime.strptime(str(row[vade_col]).strip(), "%d.%m.%Y").date()
+                        kalan_gun = (vade_tarihi - bugun).days
+                        if kalan_gun <= 7:
+                            kritik_beyannameler.append({
+                                "Sipariş / Invoice": row[inv_col],
+                                "Beyanname No": row[b_no_col] if b_no_col else "-",
+                                "Son Ödeme Tarihi": row[vade_col],
+                                "Durum": f"{kalan_gun} Gün Kaldı" if kalan_gun >= 0 else f"SÜRESİ GEÇMİŞ ({abs(kalan_gun)} Gün)"
+                            })
+                    except:
+                        pass
+
+    kpi1, kpi2, kpi3 = st.columns(3)
+    with kpi1:
+        st.metric(label="Açık Beyanname Sayısı", value=str(acik_beyanname_sayisi), delta="Aktif Dosya", delta_color="inverse")
+    with kpi2:
+        st.metric(label="Aylık Toplam Hacim", value=f"{len(df_siparisler)} Sipariş", delta="Toplam Kayıt")
+    with kpi3:
+        st.metric(label="Sistem Hızı (Turbo)", value="Işık Hızı", delta="100% Aktif")
+        
+    st.divider()
+    
+    if kritik_beyannameler:
+        st.markdown("<h4 style='color: #EF4444;'>⚠️ Vergi Son Ödeme Günü Yaklaşan Beyannameler</h4>", unsafe_allow_html=True)
+        st.dataframe(pd.DataFrame(kritik_beyannameler), use_container_width=True, hide_index=True)
     else:
-        st.markdown("### Kaydedilen Hesaplama İşlemleri")
-        data = load_data_cached("t_kayitlari")
-        if data:
-            df = pd.DataFrame(data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            st.divider()
-            excel_data = to_excel(df)
-            st.download_button(label="Excel'e Aktar (İndir)", data=excel_data, file_name=f"Mavi_Kimya_Arsiv_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
+        st.success("✅ Önümüzdeki 7 gün içinde ödeme vadesi dolan açık beyanname bulunmuyor.")
+
+# --- 🛒 3. SEÇENEK: YENİ SİPARİŞ OLUŞTURMA ---
+elif st.session_state.sayfa_yonetimi == "Yeni Sipariş" and st.session_state.authenticated:
+    st.markdown("### Sipariş ve Gümrük İşlemleri Yönetimi")
+    
+    firmalar = [c.get("cari_adi") for c in st.session_state.cari_listesi if "cari_adi" in c]
+    secilen_cari_adi = st.selectbox("Cari Adı Ara / Seç:", options=[""] + sorted(firmalar))
+
+    if secilen_cari_adi:
+        cari_detay = next((item for item in st.session_state.cari_listesi if item.get("cari_adi") == secilen_cari_adi), None)
+        tedarikci = secilen_cari_adi
+        if cari_detay:
+            with st.container(border=True):
+                st.markdown(f"**Adres:** {cari_detay.get('adres', 'Adres Bilgisi Yok')}")
+    else:
+        tedarikci = ""
+        st.info("İşlem yapmak için lütfen listeden bir firma seçin.")
+
+    st.divider()
+
+    col_ust1, col_ust2 = st.columns(2)
+    with col_ust1:
+        islem_ana_tipi = st.selectbox("İşlem Türü:", ["İthalat", "İhracat"])
+    with col_ust2:
+        islem_sekli = st.selectbox("İşlem Şli:", ["Kesin İthalat", "Devir (Antrepo)", "Geçici İthalat"] if islem_ana_tipi == "İthalat" else ["İhracat", "Transit Ticaret", "Devir"])
+        beyanname_var_mi = st.checkbox("Beyannamesi Var mı?") if islem_ana_tipi == "İthalat" else False
+
+    col_alt1, col_alt2 = st.columns(2)
+    with col_alt1:
+        fatura_tarihi = st.date_input("Fatura Tarihi:", value=datetime.now())
+    with col_alt2:
+        invoice_no = st.text_input("Invoice No:", placeholder="Örn: MAVI-2026-001")
+
+    b_no, b_tarih_str, b_durum, v_tarih_str = "", "", "Açık", ""
+    
+    if beyanname_var_mi:
+        st.info("Beyanname Detayları")
+        b_col1, b_col2 = st.columns(2)
+        with b_col1:
+            b_no = st.text_input("Beyanname No:", placeholder="Örn: 2606...")
+        with b_col2:
+            b_tarih = st.date_input("Beyanname Tescil Tarihi")
+            b_tarih_str = b_tarih.strftime("%d.%m.%Y")
+            vade_tarihi = b_tarih + dt.timedelta(days=30)
+            v_tarih_str = vade_tarihi.strftime("%d.%m.%Y")
+            st.warning(f"🏦 Vergi Son Ödeme Tarihi: {v_tarih_str}")
+
+    st.divider()
+    st.markdown("#### Sipariş ve Sevkiyat Detayları")
+    urun_secimi = st.selectbox("Ürün Seçiniz:", st.session_state.urun_listesi)
+    
+    col_t1, col_t2, col_t3 = st.columns(3)
+    devir_mi = "Devir" in islem_sekli
+    tasima_sekli = "Kara"
+    
+    with col_t1:
+        tasima_sekli = st.selectbox("Taşıma Şekli:", ["Deniz", "Kara", "Hava", "Demiryolu"]) if not devir_mi else "Devir"
+    with col_t2:
+        incoterm = st.selectbox("Incoterm / Teslim Şekli", ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"])
+    with col_t3:
+        liman = st.text_input("Gümrük / Liman:", value="Muratbey")
+
+    bl_no, konteyner_no = "", ""
+    if tasima_sekli == "Deniz":
+        st.markdown("##### ⚓ Denizyolu Konteyner Bilgileri")
+        bl_c1, bl_c2 = st.columns(2)
+        with bl_c1: bl_no = st.text_input("B/L (Bill of Lading) No:")
+        with bl_c2: konteyner_no = st.text_input("Konteyner No:")
+
+    st.divider()
+    col_f1, col_f2, col_f3 = st.columns([2, 2, 1])
+    with col_f1:
+        miktar = st.number_input("Miktar:", min_value=0.0)
+        birim = st.radio("Birim:", ["KG", "LT"], horizontal=True)
+    with col_f2:
+        toplam_tutar = st.number_input("Toplam Fatura Tutarı:", min_value=0.0)
+    with col_f3:
+        para_birimi = st.selectbox("Para Birimi:", ["$", "€", "₺", "£"])
+
+    if st.button("SİPARİŞİ KAYDET VE ARŞİVLE", use_container_width=True):
+        if not tedarikci or miktar == 0 or not invoice_no:
+            st.error("Lütfen Firma Seçimi, Miktar ve Invoice No alanlarını boş bırakmayın!")
         else:
-            st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
+            yeni_siparis_verisi = {
+                "Sipariş ID / Invoice No": invoice_no,
+                "Kategori / İşlem Türü": f"{islem_ana_tipi} - {islem_sekli}",
+                "Miktar": str(miktar),
+                "Birim": birim,
+                "Ürün Adı": urun_secimi,
+                "Toplam Tutar": str(toplam_tutar),
+                "Para Birimi": para_birimi,
+                "Taşıma Şekli": tasima_sekli,
+                "Liman / Gümrük": liman,
+                "Personel": st.session_state.user_name,
+                "Kayıt Tarihi": fatura_tarihi.strftime("%d.%m.%Y"),
+                "Beyanname No": b_no,
+                "Beyanname Tarihi": b_tarih_str,
+                "Beyanname Durumu": "Açık" if b_no else "",
+                "Vergi Son Ödeme Tarihi": v_tarih_str,
+                "B/L No": bl_no,
+                "Konteyner No": konteyner_no,
+                "Vitsan Rapor No": "",
+                "Ardiye Ödendi mi": "Hayır",
+                "Depozito Ödendi mi": "Hayır",
+                "Depozito İade Edildi mi": "Hayır"
+            }
+            kaydet_yeni_siparis(yeni_siparis_verisi)
+            st.success(f"Sipariş {invoice_no} başarıyla kaydedildi!")
+            st.rerun()
+
+# --- 📦 4. SEÇENEK: SİPARİŞ LİSTELEME VE DÜZENLEME ---
+elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler" and st.session_state.authenticated:
+    st.markdown("### Kayıtlı Sipariş Takip Otomasyonu")
+    st.caption("Yeni Sipariş ekranından girilen tüm gerçek operasyon kayıtları burada listelenir.")
+    
+    siparis_data = load_data_cached("p_kayitlari")
+    if siparis_data:
+        df_siparis = pd.DataFrame(siparis_data)
+        st.dataframe(df_siparis, use_container_width=True, hide_index=True)
+        
+        st.divider()
+        st.markdown("#### 🔄 Sipariş Detaylarını Düzenle ve Güncelle")
+        
+        ilk_kolon_adi = df_siparis.columns[0] 
+        inv_listesi = df_siparis[ilk_kolon_adi].unique().tolist()
+        secilen_inv = st.selectbox("Düzenlemek İstediğiniz Siparişi Seçin (Invoice No):", options=[""] + inv_listesi)
+        
+        if secilen_inv:
+            s_satir = df_siparis[df_siparis[ilk_kolon_adi] == secilen_inv].iloc[0].to_dict()
+            
+            with st.form("duzenleme_formu"):
+                st.markdown(f"**📄 Düzenlenen Sipariş:** {secilen_inv}")
+                
+                miktar_anahtari = next((k for k in s_satir.keys() if k.lower().strip() == "miktar"), "Miktar")
+                ham_miktar_verisi = s_satir.get(miktar_anahtari, 0.0)
+                
+                try: varsayilan_miktar = float(str(ham_miktar_verisi).replace(",", ".").strip() or 0.0)
+                except ValueError: varsayilan_miktar = 0.0
+                
+                d_col1, d_col2 = st.columns(2)
+                with d_col1:
+                    guncel_miktar = st.number_input("Miktar:", value=varsayilan_miktar)
+                    b_no_key = next((k for k in s_satir.keys() if "beyanname no" in k.lower()), "Beyanname No")
+                    guncel_b_no = st.text_input("Beyanname No:", value=s_satir.get(b_no_key, ""))
+                with d_col2:
+                    vitsan_key = next((k for k in s_satir.keys() if "vitsan" in k.lower()), "Vitsan Rapor No")
+                    guncel_vitsan = st.text_input("Vitsan Rapor No:", value=s_satir.get(vitsan_key, ""))
+                    
+                    b_tarih_key = next((k for k in s_satir.keys() if "beyanname tarih" in k.lower()), "Beyanname Tarihi")
+                    b_tar_obj = datetime.now().date()
+                    if s_satir.get(b_tarih_key):
+                        try: b_tar_obj = datetime.strptime(str(s_satir[b_tarih_key]).strip(), "%d.%m.%Y").date()
+                        except: pass
+                    guncel_b_tarih = st.date_input("Beyanname Tescil Tarihi:", value=b_tar_obj)
+
+                tasima_key = next((k for k in s_satir.keys() if "taşıma" in k.lower() or "tasima" in k.lower()), "Taşıma Şekli")
+                guncel_bl, guncel_kont = "", ""
+                if str(s_satir.get(tasima_key)).lower().strip() == "deniz":
+                    st.markdown("##### ⚓ Denizyolu Sevkiyat Güncelleme")
+                    bl_c1, bl_c2 = st.columns(2)
+                    bl_key = next((k for k in s_satir.keys() if "b/l" in k.lower()), "B/L No")
+                    kont_key = next((k for k in s_satir.keys() if "konteyner" in k.lower()), "Konteyner No")
+                    with bl_c1: guncel_bl = st.text_input("B/L No:", value=s_satir.get(bl_key, ""))
+                    with bl_c2: guncel_kont = st.text_input("Konteyner No:", value=s_satir.get(kont_key, ""))
+
+                st.markdown("##### 🏦 Finansal ve Operasyonel Durumlar")
+                f_c1, f_c2, f_c3 = st.columns(3)
+                
+                ardiye_key = next((k for k in s_satir.keys() if "ardiye" in k.lower()), "Ardiye Ödendi mi")
+                depozito_key = next((k for k in s_satir.keys() if "depozito ödendi" in k.lower()), "Depozito Ödendi mi")
+                iade_key = next((k for k in s_satir.keys() if "iade" in k.lower()), "Depozito İade Edildi mi")
+                durum_key = next((k for k in s_satir.keys() if "durum" in k.lower()), "Beyanname Durumu")
+                
+                with f_c1: chk_ardiye = st.checkbox("Ardiye Ödendi", value=(str(s_satir.get(ardiye_key)).strip().lower() == "evet"))
+                with f_c2: chk_depozito = st.checkbox("Depozito Ödendi", value=(str(s_satir.get(depozito_key)).strip().lower() == "evet"))
+                with f_c3: chk_iade = st.checkbox("Depozito İade Edildi", value=(str(s_satir.get(iade_key)).strip().lower() == "evet"))
+                
+                eski_durum = str(s_satir.get(durum_key, "Açık")).strip()
+                chk_kapanis = st.checkbox("🚨 BEYANNAME KAPANDI (Operasyonu Tamamla)", value=(eski_durum.lower() == "kapandı"))
+
+                st.form_submit_button("DEĞİŞİKLİKLERİ GOOGLE SHEETS'E KAYDET", use_container_width=True)
+                
+                if st.session_state.get("FormSubmitter:duzenleme_formu-DEĞİŞİKLİKLERİ GOOGLE SHEETS'E KAYDET"):
+                    v_tarih_guncel = (guncel_b_tarih + dt.timedelta(days=30)).strftime("%d.%m.%Y") if guncel_b_no else ""
+                    yeni_durum_str = "Kapandı" if chk_kapanis else ("Açık" if guncel_b_no else "")
+                    
+                    guncel_paket = {
+                        "Miktar": str(guncel_miktar),
+                        "Beyanname No": guncel_b_no,
+                        "Beyanname Tarihi": guncel_b_tarih.strftime("%d.%m.%Y") if guncel_b_no else "",
+                        "Vergi Son Ödeme Tarihi": v_tarih_guncel,
+                        "Vitsan Rapor No": guncel_vitsan,
+                        "B/L No": guncel_bl,
+                        "Konteyner No": guncel_kont,
+                        "Ardiye Ödendi mi": "Evet" if chk_ardiye else "Hayır",
+                        "Depozito Ödendi mi": "Evet" if chk_depozito else "Hayır",
+                        "Depozito İade Edildi mi": "Evet" if chk_iade else "Hayır",
+                        "Beyanname Durumu": yeni_durum_str
+                    }
+                    
+                    if guncelle_mevcut_siparis(secilen_inv, guncel_paket):
+                        if chk_kapanis and eski_durum.lower() != "kapandı":
+                            kaydet(
+                                islem_adi=f"INV: {secilen_inv} Kapandı",
+                                kategori="Operasyon Kapanış",
+                                girdiler=f"{secilen_inv} nolu sipariş arşive çekildi.",
+                                sonuc=f"siparişin tüm operasyonları tamamlandı",
+                                personel_adi=st.session_state.user_name,
+                                hedef_sheet=kayitlar_sheet
+                            )
+                        st.success("Veritabanı başarıyla güncellendi! Sayfa yenileniyor...")
+                        st.rerun()
+
+        st.divider()
+        excel_sip = to_excel(df_siparis)
+        st.download_button(label="Sipariş Listesini Excel'e Aktar (İndir)", data=excel_sip, file_name=f"Mavi_Kimya_Siparisler_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
+    else:
+        st.info("Henüz kaydedilmiş bir sipariş operasyonu bulunmuyor.")
+
+# --- 📜 5. SEÇENEK: HESAPLAMA ARŞİVİ ---
+elif st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler" and st.session_state.authenticated:
+    st.markdown("### Kaydedilen Hesaplama İşlemleri")
+    data = load_data_cached("t_kayitlari")
+    if data:
+        df = pd.DataFrame(data)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.divider()
+        excel_data = to_excel(df)
+        st.download_button(label="Excel'e Aktar (İndir)", data=excel_data, file_name=f"Mavi_Kimya_Arsiv_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
+    else:
+        st.info("Henüz kaydedilmiş bir işlem bulunmuyor.")
 
 st.write("")
 st.caption("© 2026 Mavi Plastik Kimya San ve Tic. A.Ş. | Batuhan KILIÇ")
