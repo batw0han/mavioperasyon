@@ -416,42 +416,69 @@ elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
                 # Seçilen satırın verilerini çek
                 s_satir = df_siparis[df_siparis[ilk_kolon_adi] == secilen_inv].iloc[0].to_dict()
                 
-                with st.form("duzenleme_formu"):
+with st.form("duzenleme_formu"):
                     st.markdown(f"**📄 Düzenlenen Sipariş:** {secilen_inv}")
+                    
+                    # 💡 Veritabanında "Miktar" veya "miktar" başlığını güvenli yakalama
+                    miktar_anahtari = next((k for k in s_satir.keys() if k.lower() == "miktar"), "Miktar")
+                    ham_miktar_verisi = s_satir.get(miktar_anahtari, 0.0)
+                    
+                    # Veri tipi dönüşümünü kurşungeçirmez yapıyoruz
+                    try:
+                        varsayilan_miktar = float(str(ham_miktar_verisi).replace(",", ".").strip() or 0.0)
+                    except ValueError:
+                        varsayilan_miktar = 0.0
                     
                     d_col1, d_col2 = st.columns(2)
                     with d_col1:
-                        guncel_miktar = st.number_input("Miktar:", value=float(s_satir.get("Miktar", 0.0) or 0.0))
-                        guncel_b_no = st.text_input("Beyanname No:", value=s_satir.get("Beyanname No", ""))
-                    with d_col2:
-                        guncel_vitsan = st.text_input("Vitsan Rapor No:", value=s_satir.get("Vitsan Rapor No", ""))
+                        # Artık burası asla çökmez reisim
+                        guncel_miktar = st.number_input("Miktar:", value=varsayilan_miktar)
                         
-                        # Tarih alanını güvenli pars etme
+                        # Diğer gümrük alanları için de benzer korumayı yapalım
+                        b_no_key = next((k for k in s_satir.keys() if "beyanname no" in k.lower()), "Beyanname No")
+                        guncel_b_no = st.text_input("Beyanname No:", value=s_satir.get(b_no_key, ""))
+                    with d_col2:
+                        vitsan_key = next((k for k in s_satir.keys() if "vitsan" in k.lower()), "Vitsan Rapor No")
+                        guncel_vitsan = st.text_input("Vitsan Rapor No:", value=s_satir.get(vitsan_key, ""))
+                        
+                        b_tarih_key = next((k for k in s_satir.keys() if "beyanname tarih" in k.lower()), "Beyanname Tarihi")
                         b_tar_obj = datetime.now().date()
-                        if s_satir.get("Beyanname Tarihi"):
-                            try: b_tar_obj = datetime.strptime(s_satir["Beyanname Tarihi"], "%d.%m.%Y").date()
-                            except: pass
+                        if s_satir.get(b_tarih_key):
+                            try: 
+                                b_tar_obj = datetime.strptime(str(s_satir[b_tarih_key]).strip(), "%d.%m.%Y").date()
+                            except: 
+                                pass
                         guncel_b_tarih = st.date_input("Beyanname Tescil Tarihi:", value=b_tar_obj)
 
-                    # ⚓ Denizyolu ek alanları kontrolü
-                    guncel_bl, guncel_kont = s_satir.get("B/L No", ""), s_satir.get("Konteyner No", "")
-                    if s_satir.get("Taşıma Şekli") == "Deniz":
+                    # Tasima sekli kontrolü
+                    tasima_key = next((k for k in s_satir.keys() if "taşıma" in k.lower() or "tasima" in k.lower()), "Taşıma Şekli")
+                    guncel_bl, guncel_kont = "", ""
+                    if str(s_satir.get(tasima_key)).lower() == "deniz":
                         st.markdown("##### ⚓ Denizyolu Sevkiyat Güncelleme")
                         bl_c1, bl_c2 = st.columns(2)
-                        with bl_c1: guncel_bl = st.text_input("B/L No:", value=s_satir.get("B/L No", ""))
-                        with bl_c2: guncel_kont = st.text_input("Konteyner No:", value=s_satir.get("Konteyner No", ""))
+                        
+                        bl_key = next((k for k in s_satir.keys() if "b/l" in k.lower()), "B/L No")
+                        kont_key = next((k for k in s_satir.keys() if "konteyner" in k.lower()), "Konteyner No")
+                        
+                        with bl_c1: guncel_bl = st.text_input("B/L No:", value=s_satir.get(bl_key, ""))
+                        with bl_c2: guncel_kont = st.text_input("Konteyner No:", value=s_satir.get(kont_key, ""))
 
                     st.markdown("##### 🏦 Finansal ve Operasyonel Durumlar")
                     f_c1, f_c2, f_c3 = st.columns(3)
-                    with f_c1:
-                        chk_ardiye = st.checkbox("Ardiye Ödendi", value=(s_satir.get("Ardiye Ödendi mi") == "Evet"))
-                    with f_c2:
-                        chk_depozito = st.checkbox("Depozito Ödendi", value=(s_satir.get("Depozito Ödendi mi") == "Evet"))
-                    with f_c3:
-                        chk_iade = st.checkbox("Depozito İade Edildi", value=(s_satir.get("Depozito İade Edildi mi") == "Evet"))
                     
-                    # 🔴 BEYANNAME KAPATMA SEÇENEĞİ
-                    eski_durum = s_satir.get("Beyanname Durumu", "Açık")
+                    ardiye_key = next((k for k in s_satir.keys() if "ardiye" in k.lower()), "Ardiye Ödendi mi")
+                    depozito_key = next((k for k in s_satir.keys() if "depozito ödendi" in k.lower()), "Depozito Ödendi mi")
+                    iade_key = next((k for k in s_satir.keys() if "iade" in k.lower()), "Depozito İade Edildi mi")
+                    durum_key = next((k for k in s_satir.keys() if "durum" in k.lower()), "Beyanname Durumu")
+                    
+                    with f_c1:
+                        chk_ardiye = st.checkbox("Ardiye Ödendi", value=(str(s_satir.get(ardiye_key)).strip().lower() == "evet"))
+                    with f_c2:
+                        chk_depozito = st.checkbox("Depozito Ödendi", value=(str(s_satir.get(depozito_key)).strip().lower() == "evet"))
+                    with f_c3:
+                        chk_iade = st.checkbox("Depozito İade Edildi", value=(str(s_satir.get(iade_key)).strip().lower() == "evet"))
+                    
+                    eski_durum = str(s_satir.get(durum_key, "Açık")).strip()
                     chk_kapanis = st.checkbox("🚨 BEYANNAME KAPANDI (Operasyonu Tamamla)", value=(eski_durum.lower() == "kapandı"))
 
                     submit_guncelle = st.form_submit_button("DEĞİŞİKLİKLERİ GOOGLE SHEETS'E KAYDET", use_container_width=True)
@@ -475,13 +502,12 @@ elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
                         }
                         
                         if guncelle_mevcut_siparis(secilen_inv, guncel_paket):
-                            # Eğer beyanname yeni kapandıysa loglara özel kayıt atalım
                             if chk_kapanis and eski_durum.lower() != "kapandı":
                                 kaydet(
                                     islem_adi=f"INV: {secilen_inv} Kapandı",
                                     kategori="Operasyon Kapanış",
                                     girdiler=f"{secilen_inv} nolu sipariş arşive çekildi.",
-                                    sonuc="siparişin tüm operasyonları tamamlandı",
+                                    sonuc=f"siparişin tüm operasyonları tamamlandı",
                                     personel_adi=st.session_state.user_name,
                                     hedef_sheet=kayitlar_sheet
                                 )
