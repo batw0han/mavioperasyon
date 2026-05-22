@@ -408,12 +408,13 @@ elif st.session_state.sayfa_yonetimi == "Kayıtlı Siparişler":
             
             # 🛠️ SİPARİŞ DÜZENLEME MODÜLÜ
             st.markdown("#### 🔄 Sipariş Detaylarını Düzenle ve Güncelle")
-            inv_listesi = df_siparis["Sipariş ID / Invoice No"].unique().tolist()
+            ilk_kolon_adi = df_siparis.columns[0] 
+            inv_listesi = df_siparis[ilk_kolon_adi].unique().tolist()
             secilen_inv = st.selectbox("Düzenlemek İstediğiniz Siparişi Seçin (Invoice No):", options=[""] + inv_listesi)
             
             if secilen_inv:
                 # Seçilen satırın verilerini çek
-                s_satir = df_siparis[df_siparis["Sipariş ID / Invoice No"] == secilen_inv].iloc[0].to_dict()
+                s_satir = df_siparis[df_siparis[ilk_kolon_adi] == secilen_inv].iloc[0].to_dict()
                 
                 with st.form("duzenleme_formu"):
                     st.markdown(f"**📄 Düzenlenen Sipariş:** {secilen_inv}")
