@@ -355,7 +355,6 @@ if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
 # --- 📊 2. SEÇENEK: ANA SAYFA (DASHBOARD - YALNIZCA GİRİŞLİ PERSONEL GÖRÜR) ---
 elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authenticated:
     st.markdown("### Genel Özet")
-    st.caption("Şirket genel operasyonel durumunu gösteren ana kontrol merkezi.")
     
     siparis_listesi = load_data_cached("p_kayitlari")
     df_siparisler = pd.DataFrame(siparis_listesi) if siparis_listesi else pd.DataFrame()
