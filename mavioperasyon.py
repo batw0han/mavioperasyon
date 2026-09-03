@@ -393,8 +393,6 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
         st.metric(label="Açık Beyanname Sayısı", value=str(acik_beyanname_sayisi), delta="Aktif Dosya", delta_color="inverse")
     with kpi2:
         st.metric(label="Aylık Toplam Hacim", value=f"{len(df_siparisler)} Sipariş", delta="Toplam Kayıt")
-    with kpi3:
-        st.metric(label="Sistem Hızı (Turbo)", value="Işık Hızı", delta="100% Aktif")
         
     st.divider()
     
