@@ -388,7 +388,7 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
                     except:
                         pass
 
-    kpi1, kpi2, kpi3 = st.columns(3)
+    kpi1, kpi2 = st.columns(2)
     with kpi1:
         st.metric(label="Açık Beyanname Sayısı", value=str(acik_beyanname_sayisi), delta="Aktif Dosya", delta_color="inverse")
     with kpi2:
