@@ -32,7 +32,6 @@ def get_spreadsheet_cached():
 def get_all_sheets():
     ss = get_spreadsheet_cached()
     if ss:
-        # terminal_listesi sayfası ekleniyor, yoksa hata vermemesi için korumalı çekiyoruz
         sheets = {
             "cari": ss.worksheet("cari_listesi"),
             "urun": ss.worksheet("urun_listesi"),
@@ -74,7 +73,7 @@ def load_data_cached(sheet_name):
         target_sheet = sheets_dict.get(mapping[sheet_name])
         if target_sheet:
             raw_data = target_sheet.get_all_values()
-            if raw_data:
+            if raw_data and len(raw_data) > 1:
                 df_temp = pd.DataFrame(raw_data[1:], columns=raw_data[0])
                 return df_temp.to_dict(orient="records")
     return []
@@ -88,7 +87,7 @@ if "cari_listesi" not in st.session_state:
 
 if "urun_listesi" not in st.session_state:
     u_data = load_data_cached("urun_listesi")
-    st.session_state.urun_listesi = sorted([row["urun_adi"] for row in u_data if "urun_adi" in row and row["urun_adi"].strip() != ""])
+    st.session_state.urun_listesi = sorted([row["urun_adi"] for row in u_data if "urun_adi" in row and str(row["urun_adi"]).strip() != ""])
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -242,7 +241,7 @@ def to_excel(df):
 # --- MERKEZİ SAYFA GÖSTERİM YÖNETİMİ ---
 # =====================================================================
 
-# --- 1. SEÇENEK: HESAPLAMA ARAÇLARI (GİRİŞSİZ AÇIK) ---
+# --- 1. SEÇENEK: HESAPLAMA ARAÇLARI ---
 if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
     st.markdown("### Hızlı Hesaplama Araçları")
     islem = st.selectbox("Lütfen Yapmak İstediğiniz İşlemi Seçin:", ["Ardiye Hesaplama", "KG -> LT Çevirme", "LT -> KG Çevirme", "Yoğunluk Hesaplama", "Denatürasyon Hesaplama (Yeni Sipariş)", "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"], key="hesap_select_box")
@@ -384,31 +383,50 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
     st.markdown("### Yeni Stok Kaydı Oluştur")
     st.caption("Gümrük ve stok bilgilerinizi girerek Google Sheets veritabanına işleyin.")
 
-    # --- VERİTABANINDAN VERİLERİ OKUMA VE FİLTRELEME ---
+    # --- ESNEK VE KORUMALI VERİ LİSTELEME MOTORU ---
     # 1. Ürünler
     u_data = load_data_cached("urun_listesi")
-    mevcut_urunler = sorted(list(set([row["urun_adi"] for row in u_data if "urun_adi" in row and row["urun_adi"].strip() != ""])))
+    mevcut_urunler = []
+    if u_data:
+        for r in u_data:
+            val = list(r.values())[0] if r else ""
+            if str(val).strip(): mevcut_urunler.append(str(val).strip())
+    mevcut_urunler = sorted(list(set(mevcut_urunler)))
     
-    # 2. Cariler (C sütunu 'cari_tipi' kontrolü)
+    # 2. Cariler (Büyük/Küçük Harf ve Sütun Adı Esnekliği)
     c_data = load_data_cached("cari_listesi")
     mevcut_alicilar, mevcut_saticilar = [], []
     if c_data:
         for row in c_data:
-            c_adi = row.get("cari_adi", "").strip()
-            c_tipi = str(row.get("cari_tipi", "")).strip().upper()
+            c_adi_key = next((k for k in row.keys() if "adi" in k.lower() or "cari" in k.lower()), list(row.keys())[0])
+            c_tipi_key = next((k for k in row.keys() if "tipi" in k.lower() or "tur" in k.lower()), None)
+            
+            c_adi = str(row.get(c_adi_key, "")).strip()
+            c_tipi = str(row.get(c_tipi_key, "")).strip().upper() if c_tipi_key else ""
+            
             if c_adi:
-                if c_tipi == "ALICI":
+                if "ALICI" in c_tipi or "ALICI" in c_adi.upper():
                     mevcut_alicilar.append(c_adi)
-                elif c_tipi == "SATICI":
+                elif "SATICI" in c_tipi or "SATICI" in c_adi.upper():
                     mevcut_saticilar.append(c_adi)
+                else:
+                    # Tipi yazmıyorsa her iki seçeneğe de ekle ki boş kalmasın
+                    mevcut_alicilar.append(c_adi)
+                    mevcut_saticilar.append(c_adi)
+                    
     mevcut_alicilar = sorted(list(set(mevcut_alicilar)))
     mevcut_saticilar = sorted(list(set(mevcut_saticilar)))
 
     # 3. Terminaller
     term_data = load_data_cached("terminal_listesi")
-    mevcut_terminaller = sorted(list(set([row["terminal_adi"] for row in term_data if "terminal_adi" in row and row["terminal_adi"].strip() != ""]))) if term_data else []
+    mevcut_terminaller = []
+    if term_data:
+        for r in term_data:
+            val = list(r.values())[0] if r else ""
+            if str(val).strip(): mevcut_terminaller.append(str(val).strip())
+    mevcut_terminaller = sorted(list(set(mevcut_terminaller)))
 
-    # --- HIZLI VERİ EKLEME BUTONLARI (4'LÜ AKORDEON YAPISI) ---
+    # --- HIZLI VERİ EKLEME BUTONLARI ---
     st.markdown("#### Hızlı Listelere Veri Ekleme")
     btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
     
@@ -427,7 +445,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
             y_alici = st.text_input("Yeni Alıcı Firma:", key="pop_alici")
             if st.button("Kaydet (Alıcı)", use_container_width=True):
                 if y_alici and y_alici.strip():
-                    # cari_adi, adres (boş), cari_tipi ("ALICI")
                     cari_sheet.append_row([y_alici.strip(), "", "ALICI"])
                     clear_cache()
                     st.success("Alıcı firma eklendi!")
@@ -438,7 +455,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
             y_satici = st.text_input("Yeni Satıcı Firma:", key="pop_satici")
             if st.button("Kaydet (Satıcı)", use_container_width=True):
                 if y_satici and y_satici.strip():
-                    # cari_adi, adres (boş), cari_tipi ("SATICI")
                     cari_sheet.append_row([y_satici.strip(), "", "SATICI"])
                     clear_cache()
                     st.success("Satıcı firma eklendi!")
@@ -533,7 +549,7 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
         secilen_b_no = st.selectbox("İşlem Yapılacak Beyanname No Seçin:", options=[""] + beyanname_listesi)
         
         if secilen_b_no:
-            s_satir = df_stok[df_siparis[b_col_name] == secilen_b_no].iloc[0].to_dict() if 'df_siparis' in locals() else df_stok[df_stok[b_col_name] == secilen_b_no].iloc[0].to_dict()
+            s_satir = df_stok[df_stok[b_col_name] == secilen_b_no].iloc[0].to_dict()
             
             with st.form("stok_guncelleme_formu"):
                 st.markdown(f"**Seçilen Beyanname:** {secilen_b_no} | **Ürün:** {s_satir.get('Ürün', '-')}")
