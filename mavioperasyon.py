@@ -383,8 +383,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
     st.markdown("### Yeni Stok Kaydı Oluştur")
     st.caption("Gümrük ve stok bilgilerinizi girerek Google Sheets veritabanına işleyin.")
 
-    # --- ESNEK VE KORUMALI VERİ LİSTELEME MOTORU ---
-    # 1. Ürünler
+    # --- ESNEK VERİ LİSTELEME ---
     u_data = load_data_cached("urun_listesi")
     mevcut_urunler = []
     if u_data:
@@ -393,7 +392,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
             if str(val).strip(): mevcut_urunler.append(str(val).strip())
     mevcut_urunler = sorted(list(set(mevcut_urunler)))
     
-    # 2. Cariler (Büyük/Küçük Harf ve Sütun Adı Esnekliği)
     c_data = load_data_cached("cari_listesi")
     mevcut_alicilar, mevcut_saticilar = [], []
     if c_data:
@@ -410,14 +408,12 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
                 elif "SATICI" in c_tipi or "SATICI" in c_adi.upper():
                     mevcut_saticilar.append(c_adi)
                 else:
-                    # Tipi yazmıyorsa her iki seçeneğe de ekle ki boş kalmasın
                     mevcut_alicilar.append(c_adi)
                     mevcut_saticilar.append(c_adi)
                     
     mevcut_alicilar = sorted(list(set(mevcut_alicilar)))
     mevcut_saticilar = sorted(list(set(mevcut_saticilar)))
 
-    # 3. Terminaller
     term_data = load_data_cached("terminal_listesi")
     mevcut_terminaller = []
     if term_data:
@@ -500,7 +496,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
         birim = st.radio("Birim:*", ["KG", "LT"], horizontal=True)
     with col5:
         secilen_terminal = st.selectbox("Terminal / Antrepo:*", options=[""] + mevcut_terminaller)
-        cikis_miktari = st.number_input("Çıkış Miktarı:", min_value=0.0, value=0.0, step=100.0)
+        cikis_miktari = st.number_input("İlk Çıkış Miktarı:", min_value=0.0, value=0.0, step=100.0)
 
     # Otomatik Kalan Miktar Hesaplama
     kalan_miktar = mira_miktar - cikis_miktari
@@ -531,62 +527,109 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
             st.success(f"Beyanname No: {beyanname_no} ile stok veritabanına başarıyla eklendi!")
             st.rerun()
 
-# --- 4. SEÇENEK: BEYANNAME - STOK TAKİP ---
+# --- 4. SEÇENEK: BEYANNAME - STOK TAKİP VE STOK DÜŞÜŞ MODÜLÜ ---
 elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_state.authenticated:
-    st.markdown("### Beyanname & Stok Takip Paneli")
-    st.caption("Veritabanına eklenen tüm stokların canlı takibi ve çıkış/kalan miktarlarının yönetimi.")
+    st.markdown("### 📋 Beyanname & Stok Takip Paneli")
+    st.caption("Veritabanındaki stokların canlı özeti ve dinamik ürün çıkış işlemleri.")
     
     stok_data = load_data_cached("p_kayitlari")
     if stok_data:
         df_stok = pd.DataFrame(stok_data)
+        
+        # 1. ÖZET TABLO
+        st.markdown("#### 📦 Mevcut Stok Özet Tablosu")
         st.dataframe(df_stok, use_container_width=True, hide_index=True)
         
         st.divider()
-        st.markdown("#### Stok Miktarı Güncelle (Çıkış / Kalan)")
+        
+        # 2. STOK ÇIKIŞ İŞLEM MODÜLÜ
+        st.markdown("#### 📤 Stoktan Ürün Çıkışı Yap")
         
         b_col_name = df_stok.columns[0]
         beyanname_listesi = df_stok[b_col_name].unique().tolist()
-        secilen_b_no = st.selectbox("İşlem Yapılacak Beyanname No Seçin:", options=[""] + beyanname_listesi)
+        secilen_b_no = st.selectbox("İşlem Yapılacak Beyanname No Seçin:*", options=[""] + beyanname_listesi)
         
         if secilen_b_no:
             s_satir = df_stok[df_stok[b_col_name] == secilen_b_no].iloc[0].to_dict()
             
-            with st.form("stok_guncelleme_formu"):
-                st.markdown(f"**Seçilen Beyanname:** {secilen_b_no} | **Ürün:** {s_satir.get('Ürün', '-')}")
+            with st.container(border=True):
+                st.markdown(f"**📄 Seçilen Beyanname:** `{secilen_b_no}` | **Ürün:** `{s_satir.get('Ürün', '-')}` | **Birim:** `{s_satir.get('Birim', 'KG')}`")
                 
-                try: giris_m = float(str(s_satir.get("Miktar", 0)).replace(",", ".").strip() or 0.0)
-                except: giris_m = 0.0
+                # Sayısal Değerleri Güvenli Çekme
+                try: toplam_giris = float(str(s_satir.get("Miktar", 0)).replace(",", ".").strip() or 0.0)
+                except: toplam_giris = 0.0
                 
-                try: mevcut_cikis = float(str(s_satir.get("Çıkış", 0)).replace(",", ".").strip() or 0.0)
-                except: mevcut_cikis = 0.0
+                try: eski_toplam_cikis = float(str(s_satir.get("Çıkış", 0)).replace(",", ".").strip() or 0.0)
+                except: eski_toplam_cikis = 0.0
                 
-                g1, g2 = st.columns(2)
-                with g1:
-                    yeni_cikis = st.number_input("Güncel Çıkış Miktarı:", value=mevcut_cikis, min_value=0.0, step=100.0)
-                with g2:
-                    yeni_kalan = giris_m - yeni_cikis
-                    st.number_input("Hesaplanan Kalan Stok:", value=yeni_kalan, disabled=True)
+                try: mevcut_kalan = float(str(s_satir.get("Kalan", 0)).replace(",", ".").strip() or 0.0)
+                except: mevcut_kalan = toplam_giris - eski_toplam_cikis
                 
-                submit_stok_guncelle = st.form_submit_button("STOK MİKTARINI GOOGLE SHEETS'E KAYDET", use_container_width=True)
+                # Canlı Metrik Gösterimi
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Toplam Giriş", f"{toplam_giris:,.2f}")
+                m2.metric("Bugüne Kadar Çıkan", f"{eski_toplam_cikis:,.2f}")
+                m3.metric("Mevcut Kalan Stok", f"{mevcut_kalan:,.2f}")
                 
-                if submit_stok_guncelle:
-                    guncel_paket = {
-                        "Çıkış": str(yeni_cikis),
-                        "Kalan": str(yeni_kalan)
-                    }
-                    if guncelle_stok_kaydi(secilen_b_no, guncel_paket):
-                        st.success("Stok miktarı veritabanında güncellendi!")
-                        st.rerun()
+                st.divider()
+                
+                with st.form("parcali_cikis_formu"):
+                    c_col1, c_col2 = st.columns(2)
+                    with c_col1:
+                        cikis_miktari_girilen = st.number_input("Yapılacak Çıkış Miktarı:*", min_value=0.0, step=100.0)
+                    with c_col2:
+                        cikis_turu = st.selectbox("Çıkış Türü / Rejim:*", ["Millileşme", "Devir", "İhracat", "Transit Ticaret", "Diğer"])
+                    
+                    # Hesaplanan Yeni Değerler
+                    yeni_toplam_cikis = eski_toplam_cikis + cikis_miktari_girilen
+                    yeni_kalan_stok = toplam_giris - yeni_toplam_cikis
+                    
+                    if cikis_miktari_girilen > mevcut_kalan:
+                        st.error(f"🚨 HATA: Çıkış yapmak istediğiniz miktar ({cikis_miktari_girilen:,.2f}), mevcut kalan stoktan ({mevcut_kalan:,.2f}) büyük olamaz!")
+                        form_gecerli = False
+                    else:
+                        st.success(f"💡 İşlem Sonrası Güncel Kalan Stok: **{yeni_kalan_stok:,.2f} {s_satir.get('Birim', 'KG')}**")
+                        form_gecerli = True
+                    
+                    submit_cikis = st.form_submit_button("STOK ÇIKIŞINI ONAYLA VE SHEETS'E İŞLE", use_container_width=True)
+                    
+                    if submit_cikis:
+                        if not form_gecerli:
+                            st.error("Lütfen geçerli bir çıkış miktarı giriniz!")
+                        elif cikis_miktari_girilen == 0:
+                            st.warning("Çıkış miktarı 0 olamaz.")
+                        else:
+                            # 1. Stok tablosunu güncelle
+                            guncel_paket = {
+                                "Çıkış": str(yeni_toplam_cikis),
+                                "Kalan": str(yeni_kalan_stok)
+                            }
+                            if guncelle_stok_kaydi(secilen_b_no, guncel_paket):
+                                # 2. İşlem Logunu t_kayitlari (Hesaplama Arşivi) sayfasına otomatik yaz
+                                log_detay = f"{secilen_b_no} nolu beyannameden {cikis_miktari_girilen:,.2f} {s_satir.get('Birim', 'KG')} çıkış yapıldı. Çıkış Türü: {cikis_turu}"
+                                log_sonuc = f"Kalan Stok: {yeni_kalan_stok:,.2f} {s_satir.get('Birim', 'KG')}"
+                                
+                                kaydet(
+                                    islem_adi=f"Stok Çıkışı ({secilen_b_no})",
+                                    kategori=f"Stok Düşüş - {cikis_turu}",
+                                    girdiler=log_detay,
+                                    sonuc=log_sonuc,
+                                    personel_adi=st.session_state.user_name,
+                                    hedef_sheet=kayitlar_sheet
+                                )
+                                
+                                st.success(f"{secilen_b_no} nolu beyannameden {cikis_miktari_girilen:,.2f} {s_satir.get('Birim', 'KG')} ({cikis_turu}) başarıyla düşüldü! Sayfa yenileniyor...")
+                                st.rerun()
 
         st.divider()
         excel_stok = to_excel(df_stok)
-        st.download_button(label="Stok Listesini Excel'e Aktar (İndir)", data=excel_stok, file_name=f"Mavi_Kimya_Stok_Takip_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
+        st.download_button(label="Stok Özet Listesini Excel'e Aktar (İndir)", data=excel_stok, file_name=f"Mavi_Kimya_Stok_Takip_{datetime.now().strftime('%d_%m_%Y')}.xlsx", use_container_width=True)
     else:
         st.info("Henüz kaydedilmiş bir stok kaydı bulunmuyor.")
 
 # --- 5. SEÇENEK: HESAPLAMA ARŞİVİ ---
 elif st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler" and st.session_state.authenticated:
-    st.markdown("### Kaydedilen Hesaplama İşlemleri")
+    st.markdown("### Kaydedilen İşlemler ve Stok Hareketleri Arşivi")
     data = load_data_cached("t_kayitlari")
     if data:
         df = pd.DataFrame(data)
