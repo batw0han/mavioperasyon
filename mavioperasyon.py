@@ -14,7 +14,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- 🚀 TURBO MOD (CACHING) AYARLARI ---
+# --- TURBO MOD (CACHING) AYARLARI ---
 
 @st.cache_resource
 def get_spreadsheet_cached():
@@ -32,13 +32,19 @@ def get_spreadsheet_cached():
 def get_all_sheets():
     ss = get_spreadsheet_cached()
     if ss:
-        return {
+        # terminal_listesi sayfası ekleniyor, yoksa hata vermemesi için korumalı çekiyoruz
+        sheets = {
             "cari": ss.worksheet("cari_listesi"),
             "urun": ss.worksheet("urun_listesi"),
             "t_kayit": ss.worksheet("t_kayitlari"),
             "kullanici": ss.worksheet("kullanicilar"),
             "p_kayit": ss.worksheet("p_kayitlari")
         }
+        try:
+            sheets["terminal"] = ss.worksheet("terminal_listesi")
+        except:
+            sheets["terminal"] = None
+        return sheets
     return {}
 
 sheets_dict = get_all_sheets()
@@ -49,25 +55,28 @@ if sheets_dict:
     kayitlar_sheet = sheets_dict["t_kayit"]
     kullanici_sheet = sheets_dict["kullanici"]
     p_kayitlar_sheet = sheets_dict["p_kayit"]
+    terminal_sheet = sheets_dict.get("terminal")
 else:
-    st.error("🚨 Google Sheets sayfalarına erişilemedi!")
+    st.error("Google Sheets sayfalarına erişilemedi!")
 
 # --- VERİ OKUMA CACHE FONKSİYONU ---
 @st.cache_data(ttl=600)
 def load_data_cached(sheet_name):
-    if sheets_dict and sheet_name in ["cari_listesi", "urun_listesi", "t_kayitlari", "kullanicilar", "p_kayitlari"]:
+    if sheets_dict and sheet_name in ["cari_listesi", "urun_listesi", "t_kayitlari", "kullanicilar", "p_kayitlari", "terminal_listesi"]:
         mapping = {
             "cari_listesi": "cari",
             "urun_listesi": "urun",
             "t_kayitlari": "t_kayit",
             "kullanicilar": "kullanici",
-            "p_kayitlari": "p_kayit"
+            "p_kayitlari": "p_kayit",
+            "terminal_listesi": "terminal"
         }
-        raw_data = sheets_dict[mapping[sheet_name]].get_all_values()
-        
-        if raw_data:
-            df_temp = pd.DataFrame(raw_data[1:], columns=raw_data[0])
-            return df_temp.to_dict(orient="records")
+        target_sheet = sheets_dict.get(mapping[sheet_name])
+        if target_sheet:
+            raw_data = target_sheet.get_all_values()
+            if raw_data:
+                df_temp = pd.DataFrame(raw_data[1:], columns=raw_data[0])
+                return df_temp.to_dict(orient="records")
     return []
 
 def clear_cache():
@@ -86,7 +95,7 @@ if "authenticated" not in st.session_state:
 if "user_name" not in st.session_state:
     st.session_state.user_name = ""
 
-# --- 🔒 GÜVENLİK FİLTRESİ VE SAYFA YÖNLENDİRME ---
+# --- GÜVENLİK FİLTRESİ VE SAYFA YÖNLENDİRME ---
 if not st.session_state.authenticated:
     st.session_state.sayfa_yonetimi = "Hesaplama Araçları"
 else:
@@ -119,12 +128,11 @@ with st.sidebar:
                 st.warning("Lütfen tüm alanları doldurun.")
                 
         st.divider()
-        st.info("ℹ️ Giriş yapmadan sadece sağ taraftaki hesaplama araçlarını kullanabilirsiniz. Stok ve beyanname yönetimi için giriş yapınız.")
+        st.info("Giriş yapmadan sadece sağ taraftaki hesaplama araçlarını kullanabilirsiniz. Stok ve beyanname yönetimi için giriş yapınız.")
     else:
         st.info(f"Aktif Kullanıcı: **{st.session_state.user_name}**")
         st.divider()
 
-        # --- YENİLENEN NAVİGASYON MENÜSÜ ---
         if st.button("Ana Sayfa", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Ana Sayfa"
             st.rerun()
@@ -165,7 +173,7 @@ def kaydet_yeni_stok(data_dict):
         row_to_append = [data_dict.get(h, "") for h in headers]
         p_kayitlar_sheet.append_row(row_to_append)
         clear_cache()
-        st.toast("Yeni stok verisi kaydedildi! ✅")
+        st.toast("Yeni stok verisi kaydedildi!")
     except Exception as e:
         st.error(f"Ekleme Hatası: {e}")
 
@@ -173,8 +181,6 @@ def guncelle_stok_kaydi(beyanname_no, guncel_data_dict):
     try:
         all_rows = p_kayitlar_sheet.get_all_values()
         headers = all_rows[0]
-        
-        # Beyanname No sütun indeksini bulma
         b_index = next((i for i, h in enumerate(headers) if "beyanname" in h.lower()), 0)
         
         row_num = -1
@@ -190,7 +196,7 @@ def guncelle_stok_kaydi(beyanname_no, guncel_data_dict):
                     col_num = headers.index(eslesen_header) + 1
                     p_kayitlar_sheet.update_cell(row_num, col_num, str(val))
             clear_cache()
-            st.toast("Stok bilgisi güncellendi! 🔄")
+            st.toast("Stok bilgisi güncellendi!")
             return True
     except Exception as e:
         st.error(f"Güncelleme Hatası: {e}")
@@ -233,10 +239,10 @@ def to_excel(df):
 
 
 # =====================================================================
-# --- 🏛️ MERKEZİ SAYFA GÖSTERİM YÖNETİMİ ---
+# --- MERKEZİ SAYFA GÖSTERİM YÖNETİMİ ---
 # =====================================================================
 
-# --- 🧮 1. SEÇENEK: HESAPLAMA ARAÇLARI (GİRİŞSİZ AÇIK) ---
+# --- 1. SEÇENEK: HESAPLAMA ARAÇLARI (GİRİŞSİZ AÇIK) ---
 if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
     st.markdown("### Hızlı Hesaplama Araçları")
     islem = st.selectbox("Lütfen Yapmak İstediğiniz İşlemi Seçin:", ["Ardiye Hesaplama", "KG -> LT Çevirme", "LT -> KG Çevirme", "Yoğunluk Hesaplama", "Denatürasyon Hesaplama (Yeni Sipariş)", "Denatürasyon Sağlama (Mevcut Ürün Kontrolü)"], key="hesap_select_box")
@@ -272,7 +278,7 @@ if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
         if "son_hesaplama" in st.session_state:
             st.divider()
             if not st.session_state.authenticated:
-                st.warning("🔒 Bu hesaplamayı arşive kalıcı olarak kaydetmek için lütfen sol panelden giriş yapınız.")
+                st.warning("Bu hesaplamayı arşive kalıcı olarak kaydetmek için lütfen sol panelden giriş yapınız.")
             else:
                 with st.expander("Bu İşlemi Arşive Kaydet"):
                     with st.form("kayit_formu", clear_on_submit=True):
@@ -280,7 +286,7 @@ if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
                         submit_button = st.form_submit_button("KAYDI ONAYLA", use_container_width=True)
 
                         if submit_button:
-                            if not kayit_ismi: st.warning("⚠️ Lütfen işlem için bir isim giriniz.")
+                            if not kayit_ismi: st.warning("Lütfen işlem için bir isim giriniz.")
                             else:
                                 data = st.session_state.son_hesaplama
                                 with st.status("Veri buluta işleniyor...", expanded=False) as status:
@@ -328,7 +334,7 @@ if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
         if "son_hesaplama" in st.session_state:
             st.divider()
             if not st.session_state.authenticated:
-                st.warning("🔒 Bu reçeteyi bulut arşına kaydetmek için lütfen sol panelden giriş yapınız.")
+                st.warning("Bu reçeteyi bulut arşına kaydetmek için lütfen sol panelden giriş yapınız.")
             else:
                 with st.expander("Bu Reçeteyi Arşive Kaydet"):
                     kayit_ismi = st.text_input("İşlem adı:", placeholder="Örn: Farmed 20 Tonluk Tank Hazırlığı")
@@ -353,7 +359,7 @@ if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
                 tba_durum = "UYGUN ✅" if abs(tba - tba_res) <= (tba_res * 0.1) else "HATALI ❌"
                 sonuc_karti_bas(tba_durum, "Tersiyer Butanol", [{"label": "Gereken", "value": f"{tba_res:.2f} gr"}, {"label": "Girdiğiniz", "value": f"{tba:.2f} gr"}])
 
-# --- 📊 2. SEÇENEK: ANA SAYFA (DASHBOARD) ---
+# --- 2. SEÇENEK: ANA SAYFA (DASHBOARD) ---
 elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authenticated:
     st.markdown("### Genel Özet")
     
@@ -370,38 +376,100 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
         
     st.divider()
     if not df_stoklar.empty:
-        st.markdown("#### 📦 Son Eklenen Stok Kayıtları")
+        st.markdown("#### Son Eklenen Stok Kayıtları")
         st.dataframe(df_stoklar.tail(5), use_container_width=True, hide_index=True)
 
-# --- 📦 3. SEÇENEK: YENİ STOK EKLE ---
+# --- 3. SEÇENEK: YENİ STOK EKLE ---
 elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.authenticated:
-    st.markdown("### 📥 Yeni Stok Kaydı Oluştur")
+    st.markdown("### Yeni Stok Kaydı Oluştur")
     st.caption("Gümrük ve stok bilgilerinizi girerek Google Sheets veritabanına işleyin.")
 
-    # --- ÜRÜN SEÇİMİ VE CANLI ÜRÜN EKLEME MODÜLÜ ---
-    st.markdown("#### 1. Ürün ve Firma Bilgileri")
-    
+    # --- VERİTABANINDAN VERİLERİ OKUMA VE FİLTRELEME ---
+    # 1. Ürünler
     u_data = load_data_cached("urun_listesi")
     mevcut_urunler = sorted(list(set([row["urun_adi"] for row in u_data if "urun_adi" in row and row["urun_adi"].strip() != ""])))
     
-    with st.expander("➕ Listede Olmayan Yeni Ürün Ekle (`urun_listesi`)"):
-        yeni_urun_adi = st.text_input("Yeni Ürün Adı:", key="yeni_urun_input_stok")
-        if st.button("Ürünü Veritabanına Ekle", use_container_width=True):
-            if yeni_urun_adi and yeni_urun_adi.strip() not in mevcut_urunler:
-                urun_sheet.append_row([yeni_urun_adi.strip()])
-                clear_cache()
-                st.session_state.urun_listesi = sorted(mevcut_urunler + [yeni_urun_adi.strip()])
-                st.success(f"'{yeni_urun_adi.strip()}' Google Sheets urun_listesi sayfasına eklendi! ✅")
-                st.rerun()
-            elif yeni_urun_adi.strip() in mevcut_urunler:
-                st.warning("Bu ürün zaten listede mevcut!")
+    # 2. Cariler (C sütunu 'cari_tipi' kontrolü)
+    c_data = load_data_cached("cari_listesi")
+    mevcut_alicilar, mevcut_saticilar = [], []
+    if c_data:
+        for row in c_data:
+            c_adi = row.get("cari_adi", "").strip()
+            c_tipi = str(row.get("cari_tipi", "")).strip().upper()
+            if c_adi:
+                if c_tipi == "ALICI":
+                    mevcut_alicilar.append(c_adi)
+                elif c_tipi == "SATICI":
+                    mevcut_saticilar.append(c_adi)
+    mevcut_alicilar = sorted(list(set(mevcut_alicilar)))
+    mevcut_saticilar = sorted(list(set(mevcut_saticilar)))
 
+    # 3. Terminaller
+    term_data = load_data_cached("terminal_listesi")
+    mevcut_terminaller = sorted(list(set([row["terminal_adi"] for row in term_data if "terminal_adi" in row and row["terminal_adi"].strip() != ""]))) if term_data else []
+
+    # --- HIZLI VERİ EKLEME BUTONLARI (4'LÜ AKORDEON YAPISI) ---
+    st.markdown("#### Hızlı Listelere Veri Ekleme")
+    btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
+    
+    with btn_col1:
+        with st.popover("Yeni Ürün Ekle", use_container_width=True):
+            y_urun = st.text_input("Yeni Ürün Adı:", key="pop_urun")
+            if st.button("Kaydet (Ürün)", use_container_width=True):
+                if y_urun and y_urun.strip():
+                    urun_sheet.append_row([y_urun.strip()])
+                    clear_cache()
+                    st.success("Ürün eklendi!")
+                    st.rerun()
+
+    with btn_col2:
+        with st.popover("Alıcı Cari Ekle", use_container_width=True):
+            y_alici = st.text_input("Yeni Alıcı Firma:", key="pop_alici")
+            if st.button("Kaydet (Alıcı)", use_container_width=True):
+                if y_alici and y_alici.strip():
+                    # cari_adi, adres (boş), cari_tipi ("ALICI")
+                    cari_sheet.append_row([y_alici.strip(), "", "ALICI"])
+                    clear_cache()
+                    st.success("Alıcı firma eklendi!")
+                    st.rerun()
+
+    with btn_col3:
+        with st.popover("Satıcı Cari Ekle", use_container_width=True):
+            y_satici = st.text_input("Yeni Satıcı Firma:", key="pop_satici")
+            if st.button("Kaydet (Satıcı)", use_container_width=True):
+                if y_satici and y_satici.strip():
+                    # cari_adi, adres (boş), cari_tipi ("SATICI")
+                    cari_sheet.append_row([y_satici.strip(), "", "SATICI"])
+                    clear_cache()
+                    st.success("Satıcı firma eklendi!")
+                    st.rerun()
+
+    with btn_col4:
+        with st.popover("Terminal - Antrepo Ekle", use_container_width=True):
+            y_term = st.text_input("Yeni Terminal Adı:", key="pop_term")
+            if st.button("Kaydet (Terminal)", use_container_width=True):
+                if y_term and y_term.strip():
+                    if terminal_sheet:
+                        terminal_sheet.append_row([y_term.strip()])
+                    else:
+                        ss = get_spreadsheet_cached()
+                        if ss:
+                            ts = ss.add_worksheet(title="terminal_listesi", rows="100", cols="5")
+                            ts.append_row(["terminal_adi"])
+                            ts.append_row([y_term.strip()])
+                    clear_cache()
+                    st.success("Terminal eklendi!")
+                    st.rerun()
+
+    st.divider()
+    st.markdown("#### 1. Ürün ve Firma Bilgileri")
+    
     col1, col2 = st.columns(2)
     with col1:
         secilen_urun = st.selectbox("Ürün Seçiniz:*", options=[""] + mevcut_urunler)
-        satici = st.text_input("Satıcı Firma:*", placeholder="Örn: CNM Chemicals")
+        secilen_satici = st.selectbox("Satıcı Firma:*", options=[""] + mevcut_saticilar)
     with col2:
-        alici = st.text_input("Alıcı Firma:*", placeholder="Örn: Mavi Plastik Kimya")
+        secilen_alici = st.selectbox("Alıcı Firma:*", options=[""] + mevcut_alicilar)
         fatura_no = st.text_input("Fatura No:*", placeholder="Örn: INV-2026-001")
 
     st.divider()
@@ -415,41 +483,41 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
         rejim = st.selectbox("Rejim:", ["40 71 (Kesin İthalat)", "71 71 (Antrepo)", "10 00 (Kesin İhracat)", "71 00 (Özet Beyan)", "Diğer"])
         birim = st.radio("Birim:*", ["KG", "LT"], horizontal=True)
     with col5:
-        terminal = st.text_input("Terminal / Antrepo:", value="İzgin Antrepo")
+        secilen_terminal = st.selectbox("Terminal / Antrepo:*", options=[""] + mevcut_terminaller)
         cikis_miktari = st.number_input("Çıkış Miktarı:", min_value=0.0, value=0.0, step=100.0)
 
     # Otomatik Kalan Miktar Hesaplama
     kalan_miktar = mira_miktar - cikis_miktari
-    st.info(f"💡 **Hesaplanan Kalan Stok Miktarı:** {kalan_miktar:.2f} {birim}")
+    st.info(f"Hesaplanan Kalan Stok Miktarı: **{kalan_miktar:.2f} {birim}**")
 
     st.divider()
     
     if st.button("STOK KAYDINI VERİTABANINA İŞLE", use_container_width=True):
-        if not beyanname_no or not secilen_urun or mira_miktar == 0 or not fatura_no:
-            st.error("Lütfen Beyanname No, Ürün, Miktar ve Fatura No alanlarını doldurunuz!")
+        if not beyanname_no or not secilen_urun or mira_miktar == 0 or not fatura_no or not secilen_satici or not secilen_alici:
+            st.error("Lütfen Beyanname No, Ürün, Satıcı, Alıcı, Miktar ve Fatura No alanlarını doldurunuz!")
         else:
             yeni_stok_paketi = {
                 "Beyanname no": beyanname_no,
-                "Satıcı": satici,
-                "Alıcı": alici,
+                "Satıcı": secilen_satici,
+                "Alıcı": secilen_alici,
                 "Ürün": secilen_urun,
                 "Fatura No": fatura_no,
                 "Miktar": str(mira_miktar),
                 "Birim": birim,
                 "Rejim": rejim,
-                "Terminal": terminal,
+                "Terminal": secilen_terminal,
                 "Çıkış": str(cikis_miktari),
                 "Kalan": str(kalan_miktar),
                 "Kayıt Yapan Kullanıcı": st.session_state.user_name,
                 "Kayıt Tarihi": datetime.now().strftime("%d.%m.%Y %H:%M")
             }
             kaydet_yeni_stok(yeni_stok_paketi)
-            st.success(f"Beyanname No: {beyanname_no} ile stok veritabanına başarıyla eklendi! 🚀")
+            st.success(f"Beyanname No: {beyanname_no} ile stok veritabanına başarıyla eklendi!")
             st.rerun()
 
-# --- 📋 4. SEÇENEK: BEYANNAME - STOK TAKİP ---
+# --- 4. SEÇENEK: BEYANNAME - STOK TAKİP ---
 elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_state.authenticated:
-    st.markdown("### 📋 Beyanname & Stok Takip Paneli")
+    st.markdown("### Beyanname & Stok Takip Paneli")
     st.caption("Veritabanına eklenen tüm stokların canlı takibi ve çıkış/kalan miktarlarının yönetimi.")
     
     stok_data = load_data_cached("p_kayitlari")
@@ -458,19 +526,18 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
         st.dataframe(df_stok, use_container_width=True, hide_index=True)
         
         st.divider()
-        st.markdown("#### 🔄 Stok Miktarı Güncelle (Çıkış / Kalan)")
+        st.markdown("#### Stok Miktarı Güncelle (Çıkış / Kalan)")
         
         b_col_name = df_stok.columns[0]
         beyanname_listesi = df_stok[b_col_name].unique().tolist()
         secilen_b_no = st.selectbox("İşlem Yapılacak Beyanname No Seçin:", options=[""] + beyanname_listesi)
         
         if secilen_b_no:
-            s_satir = df_stok[df_stok[b_col_name] == secilen_b_no].iloc[0].to_dict()
+            s_satir = df_stok[df_siparis[b_col_name] == secilen_b_no].iloc[0].to_dict() if 'df_siparis' in locals() else df_stok[df_stok[b_col_name] == secilen_b_no].iloc[0].to_dict()
             
             with st.form("stok_guncelleme_formu"):
-                st.markdown(f"**📄 Seçilen Beyanname:** {secilen_b_no} | **Ürün:** {s_satir.get('Ürün', '-')}")
+                st.markdown(f"**Seçilen Beyanname:** {secilen_b_no} | **Ürün:** {s_satir.get('Ürün', '-')}")
                 
-                # Miktar dönüşümleri
                 try: giris_m = float(str(s_satir.get("Miktar", 0)).replace(",", ".").strip() or 0.0)
                 except: giris_m = 0.0
                 
@@ -501,7 +568,7 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
     else:
         st.info("Henüz kaydedilmiş bir stok kaydı bulunmuyor.")
 
-# --- 📜 5. SEÇENEK: HESAPLAMA ARŞİVİ ---
+# --- 5. SEÇENEK: HESAPLAMA ARŞİVİ ---
 elif st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler" and st.session_state.authenticated:
     st.markdown("### Kaydedilen Hesaplama İşlemleri")
     data = load_data_cached("t_kayitlari")
