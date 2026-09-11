@@ -83,7 +83,7 @@ def load_data_cached(sheet_name):
 def clear_cache():
     st.cache_data.clear()
 
-# --- GÜMRÜK BEYANNAMESİ PDF OKUYUCU ---
+# --- GÜMRÜK BEYANNAMESİ GELİŞMİŞ PDF OKUYUCU (V17 FIX) ---
 def parse_beyanname_pdf(uploaded_file):
     parsed_data = {}
     try:
@@ -102,28 +102,37 @@ def parse_beyanname_pdf(uploaded_file):
         if bagli_an_match:
             parsed_data["bagli_an_no"] = bagli_an_match.group(1)
             
-        # 3. Satıcı Firma (İlk Metin Bloğundan Doğrudan Çekme)
+        # 3. Satıcı Firma (AN 7 / IM 4 Temizleme)
         lines = [l.strip() for l in text.split('\n') if l.strip()]
-        if lines:
-            parsed_data["satici"] = lines[0]
+        satici_bulundu = ""
+        for line in lines:
+            if line in ["CESITLI", "ÇEŞİTLİ", "AN", "IM", "7", "4"] or re.match(r'^(AN|IM)\s*\d+$', line):
+                continue
+            if len(line) > 3 and not re.match(r'^\d+$', line):
+                satici_bulundu = line
+                break
+        parsed_data["satici"] = satici_bulundu
 
-        # 4. Alıcı Firma
+        # 4. Alıcı Firma (A.Ş. / LTD. ŞTİ. Yakalama)
+        alici_match = re.search(r'([A-Z0-9\s\.\,\-]+\b(SAN|TİC|A\.Ş|LTD|ŞTİ|PAZARLAMA)\b[A-Z0-9\s\.\,\-]*)', text)
         if "MAVİ PLASTİK" in text.upper():
             parsed_data["alici"] = "MAVİ PLASTİK KİMYA İNŞAAT SAN.VE TİC.A.Ş."
+        elif alici_match:
+            parsed_data["alici"] = alici_match.group(1).split('\n')[0].strip()
 
         # 5. Ürün Adı (Ticari Tanımı)
         urun_match = re.search(r'Ticari\s+tanımı:\s*([^\n\r]+)', text, re.IGNORECASE)
         if urun_match:
-            clean_u = urun_match.group(1).split('#')[0].strip()
+            clean_u = urun_match.group(1).split('#')[0].split('*')[0].strip()
             parsed_data["urun"] = clean_u
 
         # 6. Fatura No
-        fatura_match = re.search(r'CNM\d+', text) or re.search(r'Fatura\s+V\s+([A-Z0-9]+)', text, re.IGNORECASE)
+        fatura_match = re.search(r'Fatura\s+V\s+([A-Z0-9\-]+)', text, re.IGNORECASE) or re.search(r'(FRE\d+|CNM\d+|INV\d+)', text)
         if fatura_match:
-            parsed_data["fatura_no"] = fatura_match.group(0) if "CNM" in fatura_match.group(0) else fatura_match.group(1)
+            parsed_data["fatura_no"] = fatura_match.group(1) if len(fatura_match.groups()) > 0 else fatura_match.group(0)
 
-        # 7. Miktar ve Birim
-        miktar_match = re.search(r'([\d\.,]+)\s+(KİLOGRAM|KG|LT|LİTRE|MT)', text, re.IGNORECASE)
+        # 7. Miktar ve Birim (Tire ve -DÖKME Temizleyici)
+        miktar_match = re.search(r'([\d\.,]+)\s*(KİLOGRAM|KG|LT|LİTRE|MT)', text, re.IGNORECASE)
         if miktar_match:
             raw_str = miktar_match.group(1).strip()
             if "," in raw_str and "." in raw_str:
@@ -144,19 +153,20 @@ def parse_beyanname_pdf(uploaded_file):
             elif "MT" in b_str: parsed_data["birim"] = "MT"
             else: parsed_data["birim"] = "LT"
 
-        # 8. Rejim
-        rejim_match = re.search(r'\b(71\s*71|40\s*71|10\s*00|71\s*00)\b', text)
-        if rejim_match:
-            r_code = rejim_match.group(1).replace(" ", "")
-            if r_code == "7171": parsed_data["rejim"] = "71 71 (Antrepo)"
-            elif r_code == "4071": parsed_data["rejim"] = "40 71 (Kesin İthalat)"
-            elif r_code == "1000": parsed_data["rejim"] = "10 00 (Kesin İhracat)"
-            elif r_code == "7100": parsed_data["rejim"] = "71 00 (Özet Beyan)"
+        # 8. Rejim Kodu (71 71 Öncelikli)
+        if "71 71" in text or "7171" in text:
+            parsed_data["rejim"] = "71 71 (Antrepo)"
+        elif "40 71" in text or "4071" in text:
+            parsed_data["rejim"] = "40 71 (Kesin İthalat)"
+        elif "10 00" in text or "1000" in text:
+            parsed_data["rejim"] = "10 00 (Kesin İhracat)"
+        elif "71 00" in text or "7100" in text:
+            parsed_data["rejim"] = "71 00 (Özet Beyan)"
 
         # 9. Terminal
         if "LİMAŞ" in text.upper() or "A41000067" in text.upper():
             parsed_data["terminal"] = "LİMAŞ"
-        elif "KÖRFEZ" in text.upper():
+        elif "KÖRFEZ" in text.upper() or "A41000087" in text.upper() or "İZGİN" in text.upper():
             parsed_data["terminal"] = "KÖRFEZ PETROKİMYA"
 
     except Exception as e:
@@ -173,7 +183,6 @@ def parse_vergi_dekontu_pdf(uploaded_file):
         for page in reader.pages:
             text += page.extract_text() + "\n"
             
-        # Beyanname No Çekme (IM Numarası)
         im_match = re.search(r'\b\d{8}IM\d{8}\b', text) or re.search(r'GÜMRÜK BEYANNAME NO[.:\s]*(\d{8}[A-Z]{2}\d{8})', text, re.IGNORECASE)
         if im_match:
             parsed_data["im_beyanname_no"] = im_match.group(1) if len(im_match.groups()) > 0 else im_match.group(0)
@@ -649,7 +658,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
         secilen_terminal = st.selectbox("Terminal / Antrepo:*", options=[""] + mevcut_terminaller, index=def_term_idx)
         cikis_miktari = st.number_input("İlk Çıkış Miktarı:", min_value=0.0, value=0.0, step=100.0)
 
-    # İthalat ise bağlı Antrepo no alanı
     bagli_an_girisi = st.text_input("Bağlı Antrepo Beyanname No (Varsa):", value=pdf_data.get("bagli_an_no", ""), placeholder="Örn: 26411400AN00001439")
 
     # Otomatik Kalan Miktar Hesaplama
@@ -709,7 +717,6 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
                 if im_no:
                     st.info(f"🔍 Dekont Okundu. Tespit Edilen İthalat Beyanname No (IM): **{im_no}**")
                     
-                    # Veritabanında Bu IM Beyannamesini Arama
                     im_satir = df_stok[df_stok.apply(lambda r: im_no in str(r.values), axis=1)]
                     
                     if not im_satir.empty:
@@ -722,7 +729,6 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
                         st.write(f"📌 **Eşleşen İthalat Beyannamesi:** {im_no} | **Miktar:** {im_miktar:,.2f} | **Bağlı Antrepo:** {bagli_an if bagli_an else 'Bulunamadı'}")
                         
                         if bagli_an:
-                            # Şimdi Bağlı Olduğu Antrepo Beyannamesini Arama
                             an_satir = df_stok[df_stok.apply(lambda r: bagli_an in str(r.values), axis=1)]
                             
                             if not an_satir.empty:
