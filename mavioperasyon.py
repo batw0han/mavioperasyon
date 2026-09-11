@@ -83,7 +83,7 @@ def load_data_cached(sheet_name):
 def clear_cache():
     st.cache_data.clear()
 
-# --- GÜMRÜK BEYANNAMESİ GÜÇLENDİRİLMİŞ PDF OKUYUCU ---
+# --- GÜMRÜK BEYANNAMESİ PDF OKUYUCU ---
 def parse_beyanname_pdf(uploaded_file):
     parsed_data = {}
     try:
@@ -96,39 +96,40 @@ def parse_beyanname_pdf(uploaded_file):
         b_no_match = re.search(r'\b\d{8}[A-Z]{2}\d{8}\b', text)
         if b_no_match:
             parsed_data["beyanname_no"] = b_no_match.group(0)
-            
-        # 2. Satıcı Firma
-        satici_match = re.search(r'(CNM\s+CHEMICALS[^\n\r]*)', text, re.IGNORECASE)
-        if satici_match:
-            parsed_data["satici"] = "CNM CHEMICALS AND MINERALS TRADING COMPANY LIMITED"
-        else:
-            lines = [l.strip() for l in text.split('\n') if l.strip()]
-            if lines: parsed_data["satici"] = lines[0]
 
-        # 3. Alıcı Firma
+        # 2. Bağlı Antrepo Beyannamesi (İthalat İle Bağlantı)
+        bagli_an_match = re.search(r'Gümrük\s+Beyannamesi\s+V\s+(\d{8}AN\d{8})', text, re.IGNORECASE)
+        if bagli_an_match:
+            parsed_data["bagli_an_no"] = bagli_an_match.group(1)
+            
+        # 3. Satıcı Firma (İlk Metin Bloğundan Doğrudan Çekme)
+        lines = [l.strip() for l in text.split('\n') if l.strip()]
+        if lines:
+            parsed_data["satici"] = lines[0]
+
+        # 4. Alıcı Firma
         if "MAVİ PLASTİK" in text.upper():
             parsed_data["alici"] = "MAVİ PLASTİK KİMYA İNŞAAT SAN.VE TİC.A.Ş."
 
-        # 4. Ürün Adı (Ticari Tanımı)
+        # 5. Ürün Adı (Ticari Tanımı)
         urun_match = re.search(r'Ticari\s+tanımı:\s*([^\n\r]+)', text, re.IGNORECASE)
         if urun_match:
             clean_u = urun_match.group(1).split('#')[0].strip()
             parsed_data["urun"] = clean_u
 
-        # 5. Fatura No
+        # 6. Fatura No
         fatura_match = re.search(r'CNM\d+', text) or re.search(r'Fatura\s+V\s+([A-Z0-9]+)', text, re.IGNORECASE)
         if fatura_match:
             parsed_data["fatura_no"] = fatura_match.group(0) if "CNM" in fatura_match.group(0) else fatura_match.group(1)
 
-        # 6. Miktar ve Birim (Sayı Formatı Düzeltici)
+        # 7. Miktar ve Birim
         miktar_match = re.search(r'([\d\.,]+)\s+(KİLOGRAM|KG|LT|LİTRE|MT)', text, re.IGNORECASE)
         if miktar_match:
             raw_str = miktar_match.group(1).strip()
-            # 200,000.00 veya 32.800,00 düzeltmesi
             if "," in raw_str and "." in raw_str:
-                if raw_str.find(",") < raw_str.find("."): # 200,000.00 formatı
+                if raw_str.find(",") < raw_str.find("."):
                     raw_str = raw_str.replace(",", "")
-                else: # 200.000,00 formatı
+                else:
                     raw_str = raw_str.replace(".", "").replace(",", ".")
             elif "," in raw_str:
                 raw_str = raw_str.replace(",", ".")
@@ -143,7 +144,7 @@ def parse_beyanname_pdf(uploaded_file):
             elif "MT" in b_str: parsed_data["birim"] = "MT"
             else: parsed_data["birim"] = "LT"
 
-        # 7. Rejim
+        # 8. Rejim
         rejim_match = re.search(r'\b(71\s*71|40\s*71|10\s*00|71\s*00)\b', text)
         if rejim_match:
             r_code = rejim_match.group(1).replace(" ", "")
@@ -152,7 +153,7 @@ def parse_beyanname_pdf(uploaded_file):
             elif r_code == "1000": parsed_data["rejim"] = "10 00 (Kesin İhracat)"
             elif r_code == "7100": parsed_data["rejim"] = "71 00 (Özet Beyan)"
 
-        # 8. Terminal / Antrepo Yakalama
+        # 9. Terminal
         if "LİMAŞ" in text.upper() or "A41000067" in text.upper():
             parsed_data["terminal"] = "LİMAŞ"
         elif "KÖRFEZ" in text.upper():
@@ -161,6 +162,23 @@ def parse_beyanname_pdf(uploaded_file):
     except Exception as e:
         st.error(f"PDF Parsing Hatası: {e}")
         
+    return parsed_data
+
+# --- GÜMRÜK VERGİ DEKONTU PDF OKUYUCU ---
+def parse_vergi_dekontu_pdf(uploaded_file):
+    parsed_data = {}
+    try:
+        reader = PdfReader(uploaded_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+            
+        # Beyanname No Çekme (IM Numarası)
+        im_match = re.search(r'\b\d{8}IM\d{8}\b', text) or re.search(r'GÜMRÜK BEYANNAME NO[.:\s]*(\d{8}[A-Z]{2}\d{8})', text, re.IGNORECASE)
+        if im_match:
+            parsed_data["im_beyanname_no"] = im_match.group(1) if len(im_match.groups()) > 0 else im_match.group(0)
+    except Exception as e:
+        st.error(f"Dekont Okuma Hatası: {e}")
     return parsed_data
 
 # --- SESSION STATE BAŞLATMA ---
@@ -481,35 +499,31 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
         if uploaded_pdf is not None:
             pdf_data = parse_beyanname_pdf(uploaded_pdf)
             
-            # --- 🚀 OTOMATİK LİSTE EKLEME MANTIĞI (SİZİ UĞRAŞTIRMAZ) ---
-            # 1. Ürün Otomatik Ekleme
+            # --- OTOMATİK LİSTE EKLEME MANTIĞI ---
             if pdf_data.get("urun"):
                 u_check = load_data_cached("urun_listesi")
                 m_u = [row.get("urun_adi","").strip() for row in u_check if "urun_adi" in row]
                 if pdf_data["urun"] not in m_u:
                     urun_sheet.append_row([pdf_data["urun"]])
                     clear_cache()
-                    st.toast(f"'{pdf_data['urun']}' otomatik olarak Ürün Listesine eklendi! ✅")
+                    st.toast(f"'{pdf_data['urun']}' otomatik Ürün Listesine eklendi!")
 
-            # 2. Satıcı Otomatik Ekleme
             if pdf_data.get("satici"):
                 c_check = load_data_cached("cari_listesi")
                 m_c = [row.get("cari_adi","").strip() for row in c_check if "cari_adi" in row]
                 if pdf_data["satici"] not in m_c:
                     cari_sheet.append_row([pdf_data["satici"], "", "SATICI"])
                     clear_cache()
-                    st.toast(f"'{pdf_data['satici']}' otomatik olarak Satıcı Cari Listesine eklendi! ✅")
+                    st.toast(f"'{pdf_data['satici']}' otomatik Satıcı Cari Listesine eklendi!")
 
-            # 3. Alıcı Otomatik Ekleme
             if pdf_data.get("alici"):
                 c_check = load_data_cached("cari_listesi")
                 m_c = [row.get("cari_adi","").strip() for row in c_check if "cari_adi" in row]
                 if pdf_data["alici"] not in m_c:
                     cari_sheet.append_row([pdf_data["alici"], "", "ALICI"])
                     clear_cache()
-                    st.toast(f"'{pdf_data['alici']}' otomatik olarak Alıcı Cari Listesine eklendi! ✅")
+                    st.toast(f"'{pdf_data['alici']}' otomatik Alıcı Cari Listesine eklendi!")
 
-            # 4. Terminal Otomatik Ekleme
             if pdf_data.get("terminal"):
                 t_check = load_data_cached("terminal_listesi")
                 m_t = [row.get("terminal_adi","").strip() for row in t_check if "terminal_adi" in row] if t_check else []
@@ -517,9 +531,11 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
                     if terminal_sheet:
                         terminal_sheet.append_row([pdf_data["terminal"]])
                     clear_cache()
-                    st.toast(f"'{pdf_data['terminal']}' otomatik olarak Terminal Listesine eklendi! ✅")
+                    st.toast(f"'{pdf_data['terminal']}' otomatik Terminal Listesine eklendi!")
 
             st.success("PDF Başarıyla Okundu ve Eksik Tanımlar Otomatik Veritabanına Eklendi! 🎉")
+            if pdf_data.get("bagli_an_no"):
+                st.info(f"🔗 Bağlı Antrepo Beyannamesi Tespit Edildi: **{pdf_data['bagli_an_no']}**")
 
     # --- ESNEK VERİ LİSTELEME ---
     u_data = load_data_cached("urun_listesi")
@@ -619,7 +635,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
     def_rejim_idx = ["40 71 (Kesin İthalat)", "71 71 (Antrepo)", "10 00 (Kesin İhracat)", "71 00 (Özet Beyan)", "Diğer"].index(pdf_data["rejim"]) if pdf_data.get("rejim") in ["40 71 (Kesin İthalat)", "71 71 (Antrepo)", "10 00 (Kesin İhracat)", "71 00 (Özet Beyan)", "Diğer"] else 0
     def_term_idx = mevcut_terminaller.index(pdf_data["terminal"]) + 1 if pdf_data.get("terminal") in mevcut_terminaller else 0
     
-    # Birim indeksi (KG, LT, MT)
     birim_options = ["KG", "LT", "MT"]
     def_birim_idx = birim_options.index(pdf_data["birim"]) if pdf_data.get("birim") in birim_options else 0
 
@@ -633,6 +648,9 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
     with col5:
         secilen_terminal = st.selectbox("Terminal / Antrepo:*", options=[""] + mevcut_terminaller, index=def_term_idx)
         cikis_miktari = st.number_input("İlk Çıkış Miktarı:", min_value=0.0, value=0.0, step=100.0)
+
+    # İthalat ise bağlı Antrepo no alanı
+    bagli_an_girisi = st.text_input("Bağlı Antrepo Beyanname No (Varsa):", value=pdf_data.get("bagli_an_no", ""), placeholder="Örn: 26411400AN00001439")
 
     # Otomatik Kalan Miktar Hesaplama
     kalan_miktar = mira_miktar - cikis_miktari
@@ -657,6 +675,7 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
                 "Terminal": secilen_terminal,
                 "Çıkış": str(cikis_miktari),
                 "Kalan": str(kalan_miktar),
+                "Bağlı Antrepo No": bagli_an_girisi,
                 "Kayıt Yapan Kullanıcı": st.session_state.user_name,
                 "Kayıt Tarihi": datetime.now().strftime("%d.%m.%Y %H:%M")
             }
@@ -664,10 +683,10 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
             st.success(f"Beyanname No: {beyanname_no} ile stok veritabanına başarıyla eklendi!")
             st.rerun()
 
-# --- 4. SEÇENEK: BEYANNAME - STOK TAKİP VE STOK DÜŞÜŞ MODÜLÜ ---
+# --- 4. SEÇENEK: BEYANNAME - STOK TAKİP VE OTOMATİK VERGİ DEKONTU İLE STOK DÜŞÜŞ ---
 elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_state.authenticated:
     st.markdown("### 📋 Beyanname & Stok Takip Paneli")
-    st.caption("Veritabanındaki stokların canlı özeti ve dinamik ürün çıkış işlemleri.")
+    st.caption("Veritabanındaki stokların canlı özeti, vergi dekontu ile otomatik stok düşüşü ve manuel çıkış işlemleri.")
     
     stok_data = load_data_cached("p_kayitlari")
     if stok_data:
@@ -678,9 +697,77 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
         st.dataframe(df_stok, use_container_width=True, hide_index=True)
         
         st.divider()
+
+        # 2. 📄 GÜMRÜK VERGİ DEKONTU İLE OTOMATİK STOK DÜŞÜŞİ MODÜLÜ
+        with st.expander("📄 Gümrük Vergi Dekontu Yükle (Otomatik Stok Düş)", expanded=True):
+            dekont_file = st.file_uploader("Gümrük Vergi Dekontu PDF'ini (Vakıfbank / Ziraat vb.) yükleyin:", type=["pdf"], key="dekont_uploader")
+            
+            if dekont_file is not None:
+                d_data = parse_vergi_dekontu_pdf(dekont_file)
+                im_no = d_data.get("im_beyanname_no")
+                
+                if im_no:
+                    st.info(f"🔍 Dekont Okundu. Tespit Edilen İthalat Beyanname No (IM): **{im_no}**")
+                    
+                    # Veritabanında Bu IM Beyannamesini Arama
+                    im_satir = df_stok[df_stok.apply(lambda r: im_no in str(r.values), axis=1)]
+                    
+                    if not im_satir.empty:
+                        s_im_data = im_satir.iloc[0].to_dict()
+                        bagli_an = s_im_data.get("Bağlı Antrepo No", "").strip()
+                        im_miktar_str = s_im_data.get("Miktar", "0").replace(",", ".").strip()
+                        try: im_miktar = float(im_miktar_str)
+                        except: im_miktar = 0.0
+                        
+                        st.write(f"📌 **Eşleşen İthalat Beyannamesi:** {im_no} | **Miktar:** {im_miktar:,.2f} | **Bağlı Antrepo:** {bagli_an if bagli_an else 'Bulunamadı'}")
+                        
+                        if bagli_an:
+                            # Şimdi Bağlı Olduğu Antrepo Beyannamesini Arama
+                            an_satir = df_stok[df_stok.apply(lambda r: bagli_an in str(r.values), axis=1)]
+                            
+                            if not an_satir.empty:
+                                s_an_data = an_satir.iloc[0].to_dict()
+                                b_col_name = next((c for c in df_stok.columns if "beyanname" in c.lower()), df_stok.columns[0])
+                                hedef_an_no = str(s_an_data.get(b_col_name))
+                                
+                                try: an_eski_cikis = float(str(s_an_data.get("Çıkış", 0)).replace(",", ".").strip() or 0.0)
+                                except: an_eski_cikis = 0.0
+                                
+                                try: an_toplam_giris = float(str(s_an_data.get("Miktar", 0)).replace(",", ".").strip() or 0.0)
+                                except: an_toplam_giris = 0.0
+                                
+                                an_yeni_cikis = an_eski_cikis + im_miktar
+                                an_yeni_kalan = an_toplam_giris - an_yeni_cikis
+                                
+                                if st.button(f"STOKTAN {im_miktar:,.2f} MİKTARINI (MİLLİLEŞME) DÜŞ", type="primary", use_container_width=True):
+                                    guncel_paket = {
+                                        "Çıkış": str(an_yeni_cikis),
+                                        "Kalan": str(an_yeni_kalan)
+                                    }
+                                    if guncelle_stok_kaydi(hedef_an_no, guncel_paket):
+                                        kaydet(
+                                            islem_adi=f"Dekontla Otomatik Düşüş ({im_no})",
+                                            kategori="Stok Düşüş - Millileşme (Dekont)",
+                                            girdiler=f"Dekont ile {im_no} nolu İthalat beyannamesine istinaden {hedef_an_no} nolu Antrepodan {im_miktar:,.2f} düşüldü.",
+                                            sonuc=f"Kalan Stok: {an_yeni_kalan:,.2f}",
+                                            personel_adi=st.session_state.user_name,
+                                            hedef_sheet=kayitlar_sheet
+                                        )
+                                        st.success(f"✅ {hedef_an_no} nolu Antrepo stoğundan {im_miktar:,.2f} başarıyla düşüldü!")
+                                        st.rerun()
+                            else:
+                                st.error(f"🚨 Bağlı antrepo beyannamesi ({bagli_an}) veritabanında bulunamadı!")
+                        else:
+                            st.warning("⚠️ Bu İthalat beyannamesine ait bağlı bir Antrepo Beyanname Numarası veritabanında kayıtlı değil.")
+                    else:
+                        st.error(f"🚨 Dekonttaki Beyanname No ({im_no}) sistemdeki stok kayıtlarında bulunamadı.")
+                else:
+                    st.error("🚨 Yüklenen dekont PDF'inden Beyanname Numarası çekilemedi.")
+
+        st.divider()
         
-        # 2. STOK ÇIKIŞ İŞLEM MODÜLÜ
-        st.markdown("#### 📤 Stoktan Ürün Çıkışı Yap")
+        # 3. MANUEL STOK ÇIKIŞ İŞLEM MODÜLÜ
+        st.markdown("#### 📤 Manuel Stoktan Ürün Çıkışı Yap")
         
         b_col_name = next((c for c in df_stok.columns if "beyanname" in c.lower()), df_stok.columns[0])
         beyanname_listesi = [str(x) for x in df_stok[b_col_name].unique().tolist() if str(x).strip() != ""]
