@@ -6,6 +6,8 @@ import pandas as pd
 from datetime import datetime
 import datetime as dt
 import os
+import re
+from pypdf import PdfReader
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -80,6 +82,69 @@ def load_data_cached(sheet_name):
 
 def clear_cache():
     st.cache_data.clear()
+
+# --- GÜMRÜK BEYANNAMESİ PDF AYRIŞTIRMA MOTORU ---
+def parse_beyanname_pdf(uploaded_file):
+    parsed_data = {}
+    try:
+        reader = PdfReader(uploaded_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+        
+        # 1. Beyanname No
+        b_no_match = re.search(r'\b\d{8}[A-Z]{2}\d{8}\b', text)
+        if b_no_match:
+            parsed_data["beyanname_no"] = b_no_match.group(0)
+            
+        # 2. Satıcı Firma
+        satici_match = re.search(r'([A-Z0-9\s\,\.\-\&]{5,})\s+IM\b', text) or re.search(r'([A-Z0-9\s\,\.\-\&]{5,})\s+AN\b', text)
+        if satici_match:
+            parsed_data["satici"] = satici_match.group(1).split('\n')[0].strip()
+
+        # 3. Alıcı Firma
+        if "MAVİ PLASTİK" in text.upper():
+            parsed_data["alici"] = "MAVİ PLASTİK KİMYA İNŞAAT SAN.VE TİC.A.Ş."
+
+        # 4. Ürün Adı (Ticari Tanımı)
+        urun_match = re.search(r'Ticari\s+tanımı:\s*([^\n\r]+)', text, re.IGNORECASE)
+        if urun_match:
+            parsed_data["urun"] = urun_match.group(1).strip()
+
+        # 5. Fatura No
+        fatura_match = re.search(r'Fatura\s+V\s+([A-Z0-9]+)', text, re.IGNORECASE) or re.search(r'Fatura\s+([A-Z0-9]+)', text, re.IGNORECASE)
+        if fatura_match:
+            parsed_data["fatura_no"] = fatura_match.group(1).strip()
+
+        # 6. Miktar ve Birim
+        miktar_match = re.search(r'([\d\,\.]+)\s+(KİLOGRAM|LİTRE|KG|LT)', text, re.IGNORECASE)
+        if miktar_match:
+            raw_m = miktar_match.group(1).replace(".", "").replace(",", ".")
+            try:
+                parsed_data["miktar"] = float(raw_m)
+            except:
+                pass
+            parsed_data["birim"] = "KG" if "KİLO" in miktar_match.group(2).upper() or "KG" in miktar_match.group(2).upper() else "LT"
+
+        # 7. Rejim
+        rejim_match = re.search(r'\b(71\s*71|40\s*71|10\s*00|71\s*00)\b', text)
+        if rejim_match:
+            r_code = rejim_match.group(1).replace(" ", "")
+            if r_code == "7171": parsed_data["rejim"] = "71 71 (Antrepo)"
+            elif r_code == "4071": parsed_data["rejim"] = "40 71 (Kesin İthalat)"
+            elif r_code == "1000": parsed_data["rejim"] = "10 00 (Kesin İhracat)"
+            elif r_code == "7100": parsed_data["rejim"] = "71 00 (Özet Beyan)"
+
+        # 8. Terminal / Antrepo
+        if "LİMAŞ" in text.upper():
+            parsed_data["terminal"] = "LİMAŞ"
+        elif "A41000067" in text.upper():
+            parsed_data["terminal"] = "LİMAŞ"
+
+    except Exception as e:
+        st.error(f"PDF Okuma Hatası: {e}")
+        
+    return parsed_data
 
 # --- SESSION STATE BAŞLATMA ---
 if "cari_listesi" not in st.session_state:
@@ -165,13 +230,11 @@ with st.sidebar:
             st.session_state.sayfa_yonetimi = "Hesaplama Araçları"
             st.rerun()
 
-# --- VERİTABANI YAZMA VE GÜNCELLEME FONKSİYONLARI (AKILLI ESLESTIRME YAPILDI) ---
+# --- VERİTABANI YAZMA VE GÜNCELLEME FONKSİYONLARI ---
 def kaydet_yeni_stok(data_dict):
     try:
         headers = p_kayitlar_sheet.row_values(1)
         row_to_append = []
-        
-        # Google Sheet başlıkları ile veri anahtarlarını harf duyarsız eşleştirme
         for h in headers:
             h_clean = h.lower().strip()
             found_val = ""
@@ -392,7 +455,15 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
 # --- 3. SEÇENEK: YENİ STOK EKLE ---
 elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.authenticated:
     st.markdown("### Yeni Stok Kaydı Oluştur")
-    st.caption("Gümrük ve stok bilgilerinizi girerek Google Sheets veritabanına işleyin.")
+    st.caption("Gümrük beyannamesi PDF'ini yükleyerek veya manuel girişle veritabanına kaydedin.")
+
+    # --- 📄 OTOMATİK PDF YÜKLEME VE OKUMA MODÜLÜ ---
+    with st.expander("📄 Gümrük Beyannamesi PDF Yükle (Otomatik Doldur)", expanded=True):
+        uploaded_pdf = st.file_uploader("Gümrükçünün attığı Beyanname PDF dosyasını buraya sürükleyin:", type=["pdf"])
+        pdf_data = {}
+        if uploaded_pdf is not None:
+            pdf_data = parse_beyanname_pdf(uploaded_pdf)
+            st.success("PDF Başarıyla Okundu! Aşağıdaki form otomatik dolduruldu.")
 
     # --- ESNEK VERİ LİSTELEME ---
     u_data = load_data_cached("urun_listesi")
@@ -487,26 +558,40 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
     st.divider()
     st.markdown("#### 1. Ürün ve Firma Bilgileri")
     
+    # PDF'ten gelen varsayılan indeksleri bulma
+    def_urun_idx = mevcut_urunler.index(pdf_data["urun"]) + 1 if pdf_data.get("urun") in mevcut_urunler else 0
+    def_satici_idx = mevcut_saticilar.index(pdf_data["satici"]) + 1 if pdf_data.get("satici") in mevcut_saticilar else 0
+    def_alici_idx = mevcut_alicilar.index(pdf_data["alici"]) + 1 if pdf_data.get("alici") in mevcut_alicilar else 0
+
     col1, col2 = st.columns(2)
     with col1:
-        secilen_urun = st.selectbox("Ürün Seçiniz:*", options=[""] + mevcut_urunler)
-        secilen_satici = st.selectbox("Satıcı Firma:*", options=[""] + mevcut_saticilar)
+        secilen_urun = st.selectbox("Ürün Seçiniz:*", options=[""] + mevcut_urunler, index=def_urun_idx)
+        secilen_satici = st.selectbox("Satıcı Firma:*", options=[""] + mevcut_saticilar, index=def_satici_idx)
     with col2:
-        secilen_alici = st.selectbox("Alıcı Firma:*", options=[""] + mevcut_alicilar)
-        fatura_no = st.text_input("Fatura No:*", placeholder="Örn: INV-2026-001")
+        secilen_alici = st.selectbox("Alıcı Firma:*", options=[""] + mevcut_alicilar, index=def_alici_idx)
+        fatura_no = st.text_input("Fatura No:*", value=pdf_data.get("fatura_no", ""), placeholder="Örn: INV-2026-001")
+
+    # PDF'ten gelen değer listede yoksa uyarı verme
+    if pdf_data.get("urun") and pdf_data["urun"] not in mevcut_urunler:
+        st.warning(f"⚠️ PDF'teki Ürün ({pdf_data['urun']}) listenizde bulunamadı. Lütfen 'Yeni Ürün Ekle' butonundan ekleyiniz.")
+    if pdf_data.get("satici") and pdf_data["satici"] not in mevcut_saticilar:
+        st.warning(f"⚠️ PDF'teki Satıcı ({pdf_data['satici']}) listenizde bulunamadı. Lütfen 'Satıcı Cari Ekle' butonundan ekleyiniz.")
 
     st.divider()
     st.markdown("#### 2. Beyanname ve Miktar Detayları")
     
+    def_rejim_idx = ["40 71 (Kesin İthalat)", "71 71 (Antrepo)", "10 00 (Kesin İhracat)", "71 00 (Özet Beyan)", "Diğer"].index(pdf_data["rejim"]) if pdf_data.get("rejim") in ["40 71 (Kesin İthalat)", "71 71 (Antrepo)", "10 00 (Kesin İhracat)", "71 00 (Özet Beyan)", "Diğer"] else 0
+    def_term_idx = mevcut_terminaller.index(pdf_data["terminal"]) + 1 if pdf_data.get("terminal") in mevcut_terminaller else 0
+
     col3, col4, col5 = st.columns(3)
     with col3:
-        beyanname_no = st.text_input("Beyanname No:*", placeholder="Örn: 2606...")
-        mira_miktar = st.number_input("Miktar:*", min_value=0.0, step=100.0)
+        beyanname_no = st.text_input("Beyanname No:*", value=pdf_data.get("beyanname_no", ""), placeholder="Örn: 2606...")
+        mira_miktar = st.number_input("Miktar:*", min_value=0.0, value=pdf_data.get("miktar", 0.0), step=100.0)
     with col4:
-        rejim = st.selectbox("Rejim:", ["40 71 (Kesin İthalat)", "71 71 (Antrepo)", "10 00 (Kesin İhracat)", "71 00 (Özet Beyan)", "Diğer"])
-        birim = st.radio("Birim:*", ["KG", "LT"], horizontal=True)
+        rejim = st.selectbox("Rejim:", ["40 71 (Kesin İthalat)", "71 71 (Antrepo)", "10 00 (Kesin İhracat)", "71 00 (Özet Beyan)", "Diğer"], index=def_rejim_idx)
+        birim = st.radio("Birim:*", ["KG", "LT"], index=(0 if pdf_data.get("birim") == "KG" else 1), horizontal=True)
     with col5:
-        secilen_terminal = st.selectbox("Terminal / Antrepo:*", options=[""] + mevcut_terminaller)
+        secilen_terminal = st.selectbox("Terminal / Antrepo:*", options=[""] + mevcut_terminaller, index=def_term_idx)
         cikis_miktari = st.number_input("İlk Çıkış Miktarı:", min_value=0.0, value=0.0, step=100.0)
 
     # Otomatik Kalan Miktar Hesaplama
@@ -519,7 +604,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
         if not beyanname_no or not secilen_urun or mira_miktar == 0 or not fatura_no or not secilen_satici or not secilen_alici:
             st.error("Lütfen Beyanname No, Ürün, Satıcı, Alıcı, Miktar ve Fatura No alanlarını doldurunuz!")
         else:
-            # Sütun başlığı fark etmeksizin esnek eşleşen paket
             yeni_stok_paketi = {
                 "Beyanname No": beyanname_no,
                 "Beyanname no": beyanname_no,
@@ -558,9 +642,7 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
         # 2. STOK ÇIKIŞ İŞLEM MODÜLÜ
         st.markdown("#### 📤 Stoktan Ürün Çıkışı Yap")
         
-        # Beyanname sütununu esnek tespit etme
         b_col_name = next((c for c in df_stok.columns if "beyanname" in c.lower()), df_stok.columns[0])
-        
         beyanname_listesi = [str(x) for x in df_stok[b_col_name].unique().tolist() if str(x).strip() != ""]
         secilen_b_no = st.selectbox("İşlem Yapılacak Beyanname No Seçin:*", options=[""] + beyanname_listesi)
         
@@ -573,7 +655,6 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
                 
                 st.markdown(f"**📄 Seçilen Beyanname:** `{secilen_b_no}` | **Ürün:** `{s_satir.get(urun_key, '-')}` | **Birim:** `{s_satir.get(birim_key, 'KG')}`")
                 
-                # Sayısal Değerleri Güvenli Çekme
                 m_key = next((k for k in s_satir.keys() if "miktar" in k.lower()), "Miktar")
                 c_key = next((k for k in s_satir.keys() if "çıkış" in k.lower() or "cikis" in k.lower()), "Çıkış")
                 k_key = next((k for k in s_satir.keys() if "kalan" in k.lower()), "Kalan")
@@ -587,7 +668,6 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
                 try: mevcut_kalan = float(str(s_satir.get(k_key, 0)).replace(",", ".").strip() or 0.0)
                 except: mevcut_kalan = toplam_giris - eski_toplam_cikis
                 
-                # Canlı Metrik Gösterimi
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Toplam Giriş", f"{toplam_giris:,.2f}")
                 m2.metric("Bugüne Kadar Çıkan", f"{eski_toplam_cikis:,.2f}")
@@ -602,7 +682,6 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
                     with c_col2:
                         cikis_turu = st.selectbox("Çıkış Türü / Rejim:*", ["Millileşme", "Devir", "İhracat", "Transit Ticaret", "Diğer"])
                     
-                    # Hesaplanan Yeni Değerler
                     yeni_toplam_cikis = eski_toplam_cikis + cikis_miktari_girilen
                     yeni_kalan_stok = toplam_giris - yeni_toplam_cikis
                     
