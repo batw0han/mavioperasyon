@@ -494,23 +494,66 @@ if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
 
 # --- 2. SEÇENEK: ANA SAYFA (DASHBOARD) ---
 elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authenticated:
-    st.markdown("### Genel Özet")
+    st.markdown("### 📊 Canlı Stok & Operasyon Özeti")
     
     stok_listesi = load_data_cached("p_kayitlari")
     df_stoklar = pd.DataFrame(stok_listesi) if stok_listesi else pd.DataFrame()
     
-    toplam_stok_kalemi = len(df_stoklar)
-    
-    kpi1, kpi2 = st.columns(2)
-    with kpi1:
-        st.metric(label="Aktif Stok Kalemi", value=str(toplam_stok_kalemi), delta="Toplam Kayıt")
-    with kpi2:
-        st.metric(label="Sistem Hızı (Turbo)", value="Işık Hızı", delta="100% Aktif")
-        
-    st.divider()
     if not df_stoklar.empty:
-        st.markdown("#### Son Eklenen Stok Kayıtları")
+        # Sayısal alanları güvenli şekilde float'a çevirme
+        for col in ["Miktar", "Çıkış", "Kalan"]:
+            if col in df_stoklar.columns:
+                df_stoklar[col] = df_stoklar[col].astype(str).str.replace(",", ".").str.strip()
+                df_stoklar[col] = pd.to_numeric(df_stoklar[col], errors="coerce").fillna(0.0)
+
+        toplam_stok_kalemi = len(df_stoklar)
+        toplam_kalan_stok = df_stoklar["Kalan"].sum() if "Kalan" in df_stoklar.columns else 0.0
+
+        # --- KPI ÖZET KARTLARI ---
+        kpi1, kpi2, kpi3 = st.columns(3)
+        with kpi1:
+            st.metric(label="Aktif Stok Kalemi", value=f"{toplam_stok_kalemi} Adet", delta="Aktif Beyanname")
+        with kpi2:
+            st.metric(label="Toplam Kalan Stok", value=f"{toplam_kalan_stok:,.2f}", delta="Genel Toplam Miktar")
+        with kpi3:
+            st.metric(label="Sistem Durumu", value="Işık Hızı", delta="100% Senkronize")
+
+        st.divider()
+
+        # --- DİNAMİK GRAFİK BÖLÜMÜ ---
+        col_g1, col_g2 = st.columns(2)
+
+        with col_g1:
+            st.markdown("##### 🧪 Ürün Bazlı Kalan Stok Dağılımı")
+            if "Ürün" in df_stoklar.columns and "Kalan" in df_stoklar.columns:
+                df_urun_stok = df_stoklar.groupby("Ürün")["Kalan"].sum().reset_index()
+                df_urun_stok = df_urun_stok[df_urun_stok["Kalan"] > 0] # Sadece eldeki stokları göster
+                
+                if not df_urun_stok.empty:
+                    st.bar_chart(df_urun_stok, x="Ürün", y="Kalan", color="#2596BE", use_container_width=True)
+                else:
+                    st.info("Kalan stoğu bulunan ürün bulunmuyor.")
+
+        with col_g2:
+            st.markdown("##### 🏢 Antrepo / Terminal Bazlı Stok Dağılımı")
+            term_col = next((c for c in df_stoklar.columns if "terminal" in c.lower() or "antrepo" in c.lower()), None)
+            if term_col and "Kalan" in df_stoklar.columns:
+                df_term_stok = df_stoklar.groupby(term_col)["Kalan"].sum().reset_index()
+                df_term_stok = df_term_stok[df_term_stok["Kalan"] > 0]
+                
+                if not df_term_stok.empty:
+                    st.bar_chart(df_term_stok, x=term_col, y="Kalan", color="#64748B", use_container_width=True)
+                else:
+                    st.info("Antrepolarda kalan stok bulunmuyor.")
+
+        st.divider()
+
+        # --- TABLO VE BİLDİRİMLER ---
+        st.markdown("#### 📦 Son Eklenen Stok Kayıtları")
         st.dataframe(df_stoklar.tail(5), use_container_width=True, hide_index=True)
+
+    else:
+        st.info("Henüz sisteme işlenmiş bir stok kaydı bulunmuyor. Sol menüden 'Yeni Stok Ekle'ye giderek başlayabilirsiniz.")
 
 # --- 3. SEÇENEK: YENİ STOK EKLE ---
 elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.authenticated:
