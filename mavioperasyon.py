@@ -83,7 +83,7 @@ def load_data_cached(sheet_name):
 def clear_cache():
     st.cache_data.clear()
 
-# --- GÜMRÜK BEYANNAMESİ GELİŞMİŞ PDF OKUYUCU (V17 FIX) ---
+# --- GÜMRÜK BEYANNAMESİ GELİŞMİŞ PDF OKUYUCU (V18 ULTRA FIX) ---
 def parse_beyanname_pdf(uploaded_file):
     parsed_data = {}
     try:
@@ -102,18 +102,23 @@ def parse_beyanname_pdf(uploaded_file):
         if bagli_an_match:
             parsed_data["bagli_an_no"] = bagli_an_match.group(1)
             
-        # 3. Satıcı Firma (AN 7 / IM 4 Temizleme)
+        # 3. Satıcı Firma (Gelişmiş Ayıklama)
         lines = [l.strip() for l in text.split('\n') if l.strip()]
         satici_bulundu = ""
         for line in lines:
+            # Beyanname numaraları, gümrük kodları ve gereksiz etiketleri atla
             if line in ["CESITLI", "ÇEŞİTLİ", "AN", "IM", "7", "4"] or re.match(r'^(AN|IM)\s*\d+$', line):
                 continue
-            if len(line) > 3 and not re.match(r'^\d+$', line):
+            if re.search(r'\d{8}[A-Z]{2}\d{8}', line):
+                continue
+            if re.match(r'^\d+$', line):
+                continue
+            if len(line) > 3:
                 satici_bulundu = line
                 break
         parsed_data["satici"] = satici_bulundu
 
-        # 4. Alıcı Firma (A.Ş. / LTD. ŞTİ. Yakalama)
+        # 4. Alıcı Firma
         alici_match = re.search(r'([A-Z0-9\s\.\,\-]+\b(SAN|TİC|A\.Ş|LTD|ŞTİ|PAZARLAMA)\b[A-Z0-9\s\.\,\-]*)', text)
         if "MAVİ PLASTİK" in text.upper():
             parsed_data["alici"] = "MAVİ PLASTİK KİMYA İNŞAAT SAN.VE TİC.A.Ş."
@@ -131,10 +136,11 @@ def parse_beyanname_pdf(uploaded_file):
         if fatura_match:
             parsed_data["fatura_no"] = fatura_match.group(1) if len(fatura_match.groups()) > 0 else fatura_match.group(0)
 
-        # 7. Miktar ve Birim (Tire ve -DÖKME Temizleyici)
+        # 7. Miktar ve Birim (Kesin Sayı Temizleyici)
         miktar_match = re.search(r'([\d\.,]+)\s*(KİLOGRAM|KG|LT|LİTRE|MT)', text, re.IGNORECASE)
         if miktar_match:
             raw_str = miktar_match.group(1).strip()
+            # Binlik nokta/virgül ayrımı temizleme
             if "," in raw_str and "." in raw_str:
                 if raw_str.find(",") < raw_str.find("."):
                     raw_str = raw_str.replace(",", "")
@@ -142,6 +148,8 @@ def parse_beyanname_pdf(uploaded_file):
                     raw_str = raw_str.replace(".", "").replace(",", ".")
             elif "," in raw_str:
                 raw_str = raw_str.replace(",", ".")
+            elif "." in raw_str and raw_str.count(".") > 1:
+                raw_str = raw_str.replace(".", "")
                 
             try:
                 parsed_data["miktar"] = float(raw_str)
@@ -153,15 +161,13 @@ def parse_beyanname_pdf(uploaded_file):
             elif "MT" in b_str: parsed_data["birim"] = "MT"
             else: parsed_data["birim"] = "LT"
 
-        # 8. Rejim Kodu (71 71 Öncelikli)
-        if "71 71" in text or "7171" in text:
+        # 8. Rejim Kodu (Beyanname Tipi Öncelikli)
+        if "AN00" in text or "AN" in text:
             parsed_data["rejim"] = "71 71 (Antrepo)"
-        elif "40 71" in text or "4071" in text:
+        elif "IM00" in text or "IM" in text:
             parsed_data["rejim"] = "40 71 (Kesin İthalat)"
-        elif "10 00" in text or "1000" in text:
-            parsed_data["rejim"] = "10 00 (Kesin İhracat)"
-        elif "71 00" in text or "7100" in text:
-            parsed_data["rejim"] = "71 00 (Özet Beyan)"
+        else:
+            parsed_data["rejim"] = "71 71 (Antrepo)"
 
         # 9. Terminal
         if "LİMAŞ" in text.upper() or "A41000067" in text.upper():
