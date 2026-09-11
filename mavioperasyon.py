@@ -496,7 +496,7 @@ if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
 elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authenticated:
     import plotly.express as px
 
-    st.markdown("### 📊 Canlı Stok & Operasyon Özeti")
+    st.markdown("### 📊 Canlı Stok Özeti & İnteraktif Analiz")
     
     stok_listesi = load_data_cached("p_kayitlari")
     df_stoklar = pd.DataFrame(stok_listesi) if stok_listesi else pd.DataFrame()
@@ -508,8 +508,11 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
                 df_stoklar[col] = df_stoklar[col].astype(str).str.replace(",", ".").str.strip()
                 df_stoklar[col] = pd.to_numeric(df_stoklar[col], errors="coerce").fillna(0.0)
 
-        toplam_stok_kalemi = len(df_stoklar[df_stoklar["Kalan"] > 0])
-        toplam_kalan_stok = df_stoklar["Kalan"].sum() if "Kalan" in df_stoklar.columns else 0.0
+        # Sadece eldeki aktif stokları filtrele (Kalan > 0)
+        df_aktif_stok = df_stoklar[df_stoklar["Kalan"] > 0].copy()
+
+        toplam_stok_kalemi = len(df_aktif_stok)
+        toplam_kalan_stok = df_aktif_stok["Kalan"].sum() if "Kalan" in df_aktif_stok.columns else 0.0
 
         # --- KPI ÖZET KARTLARI ---
         kpi1, kpi2, kpi3 = st.columns(3)
@@ -522,58 +525,74 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
 
         st.divider()
 
-        # --- PLOTLY DİNAMİK GRAFİK BÖLÜMÜ ---
-        col_g1, col_g2 = st.columns(2)
+        # --- İNTERAKTİF TEK GRAFİK MODÜLÜ ---
+        term_col = next((c for c in df_aktif_stok.columns if "terminal" in c.lower() or "antrepo" in c.lower()), "Terminal")
+        
+        mevcut_urun_listesi = sorted(df_aktif_stok["Ürün"].unique().tolist()) if "Ürün" in df_aktif_stok.columns else []
+        
+        # Ürün Seçim Kutusu (Detay Inceleme)
+        secilen_g_urun = st.selectbox(
+            "🔍 Detayını Görmek İstediğiniz Ürünü Seçin (Tüm ürünleri görmek için 'Tüm Ürünler Özeti'ni seçin):",
+            options=["Tüm Ürünler Özeti"] + mevcut_urun_listesi
+        )
 
-        with col_g1:
-            if "Ürün" in df_stoklar.columns and "Kalan" in df_stoklar.columns:
-                df_urun_stok = df_stoklar.groupby("Ürün")["Kalan"].sum().reset_index()
-                df_urun_stok = df_urun_stok[df_urun_stok["Kalan"] > 0]
-                
-                if not df_urun_stok.empty:
-                    fig_donut = px.pie(
-                        df_urun_stok, 
-                        values="Kalan", 
-                        names="Ürün", 
-                        hole=0.5,
-                        title="<b>🧪 Ürün Bazlı Stok Oranları</b>",
-                        color_discrete_sequence=px.colors.qualitative.Set2
-                    )
-                    fig_donut.update_traces(textposition='inside', textinfo='percent+label')
-                    fig_donut.update_layout(margin=dict(t=40, b=0, l=0, r=0), showlegend=False)
-                    st.plotly_chart(fig_donut, use_container_width=True)
-                else:
-                    st.info("Kalan stoğu bulunan ürün bulunmuyor.")
+        if secilen_g_urun == "Tüm Ürünler Özeti":
+            # 1. AŞAMA: TÜM ÜRÜNLERİN GENEL STOK DAĞILIMI
+            df_chart = df_aktif_stok.groupby("Ürün")["Kalan"].sum().reset_index()
+            
+            fig = px.bar(
+                df_chart, 
+                x="Ürün", 
+                y="Kalan", 
+                text_auto=',.2f',
+                title="<b>🧪 Ürün Bazlı Toplam Kalan Stok Miktarları</b>",
+                color="Kalan",
+                color_continuous_scale="Blues"
+            )
+            fig.update_layout(
+                height=520, # Grafik boyutu büyütüldü
+                xaxis_title="Ürünler",
+                yaxis_title="Kalan Stok Miktarı",
+                font=dict(size=14), # Okunabilirlik için yazı boyutu büyütüldü
+                coloraxis_showscale=False,
+                margin=dict(t=50, b=40, l=40, r=40)
+            )
+            fig.update_traces(textposition='outside', textfont_size=13)
+            st.plotly_chart(fig, use_container_width=True)
 
-        with col_g2:
-            term_col = next((c for c in df_stoklar.columns if "terminal" in c.lower() or "antrepo" in c.lower()), None)
-            if term_col and "Kalan" in df_stoklar.columns:
-                df_term_stok = df_stoklar.groupby(term_col)["Kalan"].sum().reset_index()
-                df_term_stok = df_term_stok[df_term_stok["Kalan"] > 0]
-                
-                if not df_term_stok.empty:
-                    fig_bar = px.bar(
-                        df_term_stok, 
-                        x="Kalan", 
-                        y=term_col, 
-                        orientation='h',
-                        text_auto='.2s',
-                        title="<b>🏢 Antrepo Stok Seviyeleri (KG/LT)</b>",
-                        color="Kalan",
-                        color_continuous_scale="Blues"
-                    )
-                    fig_bar.update_layout(
-                        margin=dict(t=40, b=0, l=0, r=0), 
-                        xaxis_title="", 
-                        yaxis_title="",
-                        coloraxis_showscale=False
-                    )
-                    st.plotly_chart(fig_bar, use_container_width=True)
-                else:
-                    st.info("Antrepolarda kalan stok bulunmuyor.")
+        else:
+            # 2. AŞAMA: SEÇİLEN ÜRÜNÜN ANTREPO/TERMİNAL BAZLI KIRILIMI
+            df_sub = df_aktif_stok[df_aktif_stok["Ürün"] == secilen_g_urun]
+            df_chart_sub = df_sub.groupby(term_col)["Kalan"].sum().reset_index()
+
+            fig_sub = px.bar(
+                df_chart_sub, 
+                x=term_col, 
+                y="Kalan", 
+                text_auto=',.2f',
+                title=f"<b>🏢 '{secilen_g_urun}' Ürününün Antrepo / Terminal Dağılımı</b>",
+                color="Kalan",
+                color_continuous_scale="Tealgrn"
+            )
+            fig_sub.update_layout(
+                height=520, # Grafik boyutu büyütüldü
+                xaxis_title="Antrepo / Terminal",
+                yaxis_title="Kalan Miktar",
+                font=dict(size=14),
+                coloraxis_showscale=False,
+                margin=dict(t=50, b=40, l=40, r=40)
+            )
+            fig_sub.update_traces(textposition='outside', textfont_size=13)
+            st.plotly_chart(fig_sub, use_container_width=True)
 
         st.divider()
 
+        # --- TABLO VE BİLDİRİMLER ---
+        st.markdown("#### 📦 Son Eklenen Stok Kayıtları")
+        st.dataframe(df_stoklar.tail(5), use_container_width=True, hide_index=True)
+
+    else:
+        st.info("Henüz sisteme işlenmiş bir stok kaydı bulunmuyor. Sol menüden 'Yeni Stok Ekle'ye giderek başlayabilirsiniz.")
         # --- TABLO VE BİLDİRİMLER ---
         st.markdown("#### 📦 Son Eklenen Stok Kayıtları")
         st.dataframe(df_stoklar.tail(5), use_container_width=True, hide_index=True)
