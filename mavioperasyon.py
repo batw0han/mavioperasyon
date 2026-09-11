@@ -502,42 +502,39 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
     df_stoklar = pd.DataFrame(stok_listesi) if stok_listesi else pd.DataFrame()
     
     if not df_stoklar.empty:
-        # Sayısal alanları güvenli şekilde float'a çevirme
+        # Sayısal alanları dönüştürme
         for col in ["Miktar", "Çıkış", "Kalan"]:
             if col in df_stoklar.columns:
                 df_stoklar[col] = df_stoklar[col].astype(str).str.replace(",", ".").str.strip()
                 df_stoklar[col] = pd.to_numeric(df_stoklar[col], errors="coerce").fillna(0.0)
 
-        # Sadece eldeki aktif stokları filtrele (Kalan > 0)
+        # Aktif stokları süz
         df_aktif_stok = df_stoklar[df_stoklar["Kalan"] > 0].copy()
 
         toplam_stok_kalemi = len(df_aktif_stok)
         toplam_kalan_stok = df_aktif_stok["Kalan"].sum() if "Kalan" in df_aktif_stok.columns else 0.0
 
         # --- KPI ÖZET KARTLARI ---
-        kpi1, kpi2, kpi3 = st.columns(3)
+        kpi1, kpi2 = st.columns(2)
         with kpi1:
             st.metric(label="Aktif Beyanname", value=f"{toplam_stok_kalemi} Adet", delta="Elde Stok Olan")
         with kpi2:
             st.metric(label="Toplam Kalan Stok", value=f"{toplam_kalan_stok:,.2f}", delta="Genel Toplam Miktar")
-        with kpi3:
-            st.metric(label="Sistem Durumu", value="Işık Hızı", delta="100% Senkronize")
 
         st.divider()
 
-        # --- İNTERAKTİF TEK GRAFİK MODÜLÜ ---
+        # --- İNTERAKTİF DİNAMİK TEK GRAFİK ---
         term_col = next((c for c in df_aktif_stok.columns if "terminal" in c.lower() or "antrepo" in c.lower()), "Terminal")
-        
         mevcut_urun_listesi = sorted(df_aktif_stok["Ürün"].unique().tolist()) if "Ürün" in df_aktif_stok.columns else []
         
-        # Ürün Seçim Kutusu (Detay Inceleme)
+        # Filtreleme Kutusu
         secilen_g_urun = st.selectbox(
-            "🔍 Detayını Görmek İstediğiniz Ürünü Seçin (Tüm ürünleri görmek için 'Tüm Ürünler Özeti'ni seçin):",
+            "🔍 Detayını Görmek İstediğiniz Ürünü Seçin (Antrepo dağılımı için ürüne tıklayın):",
             options=["Tüm Ürünler Özeti"] + mevcut_urun_listesi
         )
 
         if secilen_g_urun == "Tüm Ürünler Özeti":
-            # 1. AŞAMA: TÜM ÜRÜNLERİN GENEL STOK DAĞILIMI
+            # Genel Ürün Dağılımı
             df_chart = df_aktif_stok.groupby("Ürün")["Kalan"].sum().reset_index()
             
             fig = px.bar(
@@ -550,10 +547,10 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
                 color_continuous_scale="Blues"
             )
             fig.update_layout(
-                height=520, # Grafik boyutu büyütüldü
+                height=530,
                 xaxis_title="Ürünler",
                 yaxis_title="Kalan Stok Miktarı",
-                font=dict(size=14), # Okunabilirlik için yazı boyutu büyütüldü
+                font=dict(size=14),
                 coloraxis_showscale=False,
                 margin=dict(t=50, b=40, l=40, r=40)
             )
@@ -561,7 +558,7 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
             st.plotly_chart(fig, use_container_width=True)
 
         else:
-            # 2. AŞAMA: SEÇİLEN ÜRÜNÜN ANTREPO/TERMİNAL BAZLI KIRILIMI
+            # Seçilen Ürünün Antrepo Dağılımı
             df_sub = df_aktif_stok[df_aktif_stok["Ürün"] == secilen_g_urun]
             df_chart_sub = df_sub.groupby(term_col)["Kalan"].sum().reset_index()
 
@@ -575,7 +572,7 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
                 color_continuous_scale="Tealgrn"
             )
             fig_sub.update_layout(
-                height=520, # Grafik boyutu büyütüldü
+                height=530,
                 xaxis_title="Antrepo / Terminal",
                 yaxis_title="Kalan Miktar",
                 font=dict(size=14),
@@ -587,13 +584,7 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
 
         st.divider()
 
-        # --- TABLO VE BİLDİRİMLER ---
-        st.markdown("#### 📦 Son Eklenen Stok Kayıtları")
-        st.dataframe(df_stoklar.tail(5), use_container_width=True, hide_index=True)
-
-    else:
-        st.info("Henüz sisteme işlenmiş bir stok kaydı bulunmuyor. Sol menüden 'Yeni Stok Ekle'ye giderek başlayabilirsiniz.")
-        # --- TABLO VE BİLDİRİMLER ---
+        # --- TABLO ---
         st.markdown("#### 📦 Son Eklenen Stok Kayıtları")
         st.dataframe(df_stoklar.tail(5), use_container_width=True, hide_index=True)
 
