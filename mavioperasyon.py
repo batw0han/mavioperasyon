@@ -83,7 +83,7 @@ def load_data_cached(sheet_name):
 def clear_cache():
     st.cache_data.clear()
 
-# --- GÜMRÜK BEYANNAMESİ GELİŞMİŞ PDF OKUYUCU (V18 ULTRA FIX) ---
+# --- GÜMRÜK BEYANNAMESİ V20 FİNAL PARSER ---
 def parse_beyanname_pdf(uploaded_file):
     parsed_data = {}
     try:
@@ -97,33 +97,39 @@ def parse_beyanname_pdf(uploaded_file):
         if b_no_match:
             parsed_data["beyanname_no"] = b_no_match.group(0)
 
-        # 2. Bağlı Antrepo Beyannamesi (İthalat İle Bağlantı)
+        # 2. Bağlı Antrepo Beyannamesi (İthalat Beyannameleri İçin)
         bagli_an_match = re.search(r'Gümrük\s+Beyannamesi\s+V\s+(\d{8}AN\d{8})', text, re.IGNORECASE)
         if bagli_an_match:
             parsed_data["bagli_an_no"] = bagli_an_match.group(1)
             
-        # 3. Satıcı Firma (Gelişmiş Ayıklama)
+        # 3. Satıcı Firma Yakalama (Gümrük ve Beyanname Kodlarından Süzülmüş)
         lines = [l.strip() for l in text.split('\n') if l.strip()]
-        satici_bulundu = ""
+        satici_candidates = []
+        
+        engeller = [
+            "CESITLI", "ÇEŞİTLİ", "AN", "IM", "GÜMRÜK", "MÜDÜRLÜĞÜ", "MÜD", 
+            "SAYMANLIĞI", "AKTARMA", "SERBEST", "BÖLGE", "BAKANLIĞI", "VEKALET"
+        ]
+        
         for line in lines:
-            # Beyanname numaraları, gümrük kodları ve gereksiz etiketleri atla
-            if line in ["CESITLI", "ÇEŞİTLİ", "AN", "IM", "7", "4"] or re.match(r'^(AN|IM)\s*\d+$', line):
+            line_up = line.upper()
+            if any(eng in line_up for eng in engeller):
                 continue
             if re.search(r'\d{8}[A-Z]{2}\d{8}', line):
                 continue
-            if re.match(r'^\d+$', line):
+            if re.match(r'^\d+$', line) or len(line) <= 3:
                 continue
-            if len(line) > 3:
-                satici_bulundu = line
-                break
-        parsed_data["satici"] = satici_bulundu
+            satici_candidates.append(line)
+            
+        parsed_data["satici"] = satici_candidates[0] if satici_candidates else ""
 
         # 4. Alıcı Firma
-        alici_match = re.search(r'([A-Z0-9\s\.\,\-]+\b(SAN|TİC|A\.Ş|LTD|ŞTİ|PAZARLAMA)\b[A-Z0-9\s\.\,\-]*)', text)
         if "MAVİ PLASTİK" in text.upper():
             parsed_data["alici"] = "MAVİ PLASTİK KİMYA İNŞAAT SAN.VE TİC.A.Ş."
-        elif alici_match:
-            parsed_data["alici"] = alici_match.group(1).split('\n')[0].strip()
+        else:
+            alici_match = re.search(r'([A-Z0-9\s\.\,\-]+\b(SAN|TİC|A\.Ş|LTD|ŞTİ|PAZARLAMA)\b[A-Z0-9\s\.\,\-]*)', text)
+            if alici_match:
+                parsed_data["alici"] = alici_match.group(1).split('\n')[0].strip()
 
         # 5. Ürün Adı (Ticari Tanımı)
         urun_match = re.search(r'Ticari\s+tanımı:\s*([^\n\r]+)', text, re.IGNORECASE)
@@ -136,11 +142,12 @@ def parse_beyanname_pdf(uploaded_file):
         if fatura_match:
             parsed_data["fatura_no"] = fatura_match.group(1) if len(fatura_match.groups()) > 0 else fatura_match.group(0)
 
-        # 7. Miktar ve Birim (Kesin Sayı Temizleyici)
+        # 7. Miktar ve Birim Okuma (Gelişmiş Format Ayrıştırma)
         miktar_match = re.search(r'([\d\.,]+)\s*(KİLOGRAM|KG|LT|LİTRE|MT)', text, re.IGNORECASE)
         if miktar_match:
             raw_str = miktar_match.group(1).strip()
-            # Binlik nokta/virgül ayrımı temizleme
+            
+            # 251,950.00 veya 251.950,00 dönüşümleri
             if "," in raw_str and "." in raw_str:
                 if raw_str.find(",") < raw_str.find("."):
                     raw_str = raw_str.replace(",", "")
@@ -160,11 +167,15 @@ def parse_beyanname_pdf(uploaded_file):
             if "KİLO" in b_str or "KG" in b_str: parsed_data["birim"] = "KG"
             elif "MT" in b_str: parsed_data["birim"] = "MT"
             else: parsed_data["birim"] = "LT"
+        else:
+            parsed_data["miktar"] = 0.0
+            parsed_data["birim"] = "KG"
 
-        # 8. Rejim Kodu (Beyanname Tipi Öncelikli)
-        if "AN00" in text or "AN" in text:
+        # 8. Rejim Kodu
+        b_no = parsed_data.get("beyanname_no", "")
+        if "AN" in b_no or "AN00" in text:
             parsed_data["rejim"] = "71 71 (Antrepo)"
-        elif "IM00" in text or "IM" in text:
+        elif "IM" in b_no or "IM00" in text:
             parsed_data["rejim"] = "40 71 (Kesin İthalat)"
         else:
             parsed_data["rejim"] = "71 71 (Antrepo)"
@@ -653,16 +664,19 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
     birim_options = ["KG", "LT", "MT"]
     def_birim_idx = birim_options.index(pdf_data["birim"]) if pdf_data.get("birim") in birim_options else 0
 
+    # Float casting işlemi
+    parsed_val = float(pdf_data.get("miktar", 0.0))
+
     col3, col4, col5 = st.columns(3)
     with col3:
         beyanname_no = st.text_input("Beyanname No:*", value=pdf_data.get("beyanname_no", ""), placeholder="Örn: 2606...")
-        mira_miktar = st.number_input("Miktar:*", min_value=0.0, value=pdf_data.get("miktar", 0.0), step=100.0)
+        mira_miktar = st.number_input("Miktar:*", min_value=0.0, value=parsed_val, step=100.0, format="%.2f")
     with col4:
         rejim = st.selectbox("Rejim:", ["40 71 (Kesin İthalat)", "71 71 (Antrepo)", "10 00 (Kesin İhracat)", "71 00 (Özet Beyan)", "Diğer"], index=def_rejim_idx)
         birim = st.radio("Birim:*", birim_options, index=def_birim_idx, horizontal=True)
     with col5:
         secilen_terminal = st.selectbox("Terminal / Antrepo:*", options=[""] + mevcut_terminaller, index=def_term_idx)
-        cikis_miktari = st.number_input("İlk Çıkış Miktarı:", min_value=0.0, value=0.0, step=100.0)
+        cikis_miktari = st.number_input("İlk Çıkış Miktarı:", min_value=0.0, value=0.0, step=100.0, format="%.2f")
 
     bagli_an_girisi = st.text_input("Bağlı Antrepo Beyanname No (Varsa):", value=pdf_data.get("bagli_an_no", ""), placeholder="Örn: 26411400AN00001439")
 
@@ -817,7 +831,7 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
                 with st.form("parcali_cikis_formu"):
                     c_col1, c_col2 = st.columns(2)
                     with c_col1:
-                        cikis_miktari_girilen = st.number_input("Yapılacak Çıkış Miktarı:*", min_value=0.0, step=100.0)
+                        cikis_miktari_girilen = st.number_input("Yapılacak Çıkış Miktarı:*", min_value=0.0, step=100.0, format="%.2f")
                     with c_col2:
                         cikis_turu = st.selectbox("Çıkış Türü / Rejim:*", ["Millileşme", "Devir", "İhracat", "Transit Ticaret", "Diğer"])
                     
