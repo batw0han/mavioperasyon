@@ -510,13 +510,11 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
         toplam_kalan_stok = df_stoklar["Kalan"].sum() if "Kalan" in df_stoklar.columns else 0.0
 
         # --- KPI ÖZET KARTLARI ---
-        kpi1, kpi2, kpi3 = st.columns(3)
+        kpi1, kpi2 = st.columns(2)
         with kpi1:
             st.metric(label="Aktif Stok Kalemi", value=f"{toplam_stok_kalemi} Adet", delta="Aktif Beyanname")
         with kpi2:
             st.metric(label="Toplam Kalan Stok", value=f"{toplam_kalan_stok:,.2f}", delta="Genel Toplam Miktar")
-        with kpi3:
-            st.metric(label="Sistem Durumu", value="Işık Hızı", delta="100% Senkronize")
 
         st.divider()
 
