@@ -9,6 +9,7 @@ import os
 import re
 import io
 import json
+import requests
 from pypdf import PdfReader
 import google.generativeai as genai
 
@@ -20,7 +21,6 @@ st.set_page_config(
 )
 
 # --- GEMINI API YAPILANDIRMASI ---
-# Secrets içinde "GEMINI_API_KEY" tanımlı ise oradan alır, yoksa varsayılan
 GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
 if GEMINI_KEY != "YOUR_GEMINI_API_KEY_HERE":
     genai.configure(api_key=GEMINI_KEY)
@@ -273,7 +273,7 @@ if "user_name" not in st.session_state:
 if not st.session_state.authenticated:
     st.session_state.sayfa_yonetimi = "Hesaplama Araçları"
 else:
-    if "sayfa_yonetimi" not in st.session_state or st.session_state.sayfa_yonetimi == "Hesaplama Araçları" and not st.session_state.get("init_done"):
+    if "sayfa_yonetimi" not in st.session_state or (st.session_state.sayfa_yonetimi == "Hesaplama Araçları" and not st.session_state.get("init_done")):
         st.session_state.sayfa_yonetimi = "Ana Sayfa"
         st.session_state.init_done = True
 
@@ -321,7 +321,7 @@ with st.sidebar:
             st.session_state.sayfa_yonetimi = "Beyanname - Stok Takip"
             st.rerun()
 
-        # --- YENİ EKLENEN OTOMATİK HAFTALIK MAIL SENKRONİZASYON BUTONU ---
+        # --- OTOMATİK HAFTALIK MAIL SENKRONİZASYON BUTONU ---
         if st.button("📧 Outlook Mail Senkronizasyonu", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Outlook Senkronizasyon"
             st.rerun()
@@ -989,89 +989,81 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
     else:
         st.info("Henüz kaydedilmiş bir stok kaydı bulunmuyor.")
 
-# --- 5. SEÇENEK: YENİ EKLENEN OUTLOOK + GEMINI HAFTALIK MAIL SENKRONİZASYON SAYFASI ---
+# --- 5. SEÇENEK: GITHUB BULUT DEPOSU İLE AI STOK SENKRONİZASYON SAYFASI ---
 elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_state.authenticated:
-    st.markdown("### 📧 Otomatik Outlook Mail & AI Stok Senkronizasyonu")
-    st.caption("Bu ekran, bilgisayarınızda açık olan Outlook uygulamasından son 7 gündeki gümrük maillerini tarar, PDF'leri Gemini AI ile analiz edip otomatik stoğa işler.")
+    st.markdown("### ☁️ Otomatik Stok Senkronizasyon Paneli")
+    st.caption("Cuma günleri masaüstü scripti ile GitHub deposuna aktarılan gümrük PDF'leri burada Gemini AI ile analiz edilir ve veritabanına otomatik işlenir.")
 
-    st.info("💡 **Nasıl Çalışır?** Bilgisayarınızda Outlook açık durumdayken aşağıdaki **'HAFTALIK MAİLLERİ TARA VE İŞLE'** butonuna basın. Şifre girmeden mailler taranır.")
-
-    taranacak_gun = st.slider("Kaç Günlük Mailler Taranacak?", min_value=1, max_value=14, value=7)
-
-    if st.button("🚀 HAFTALIK MAİLLERİ TARA VE İŞLE", type="primary", use_container_width=True):
-        try:
-            import win32com.client
-        except ImportError:
-            st.error("🚨 `pywin32` kütüphanesi ortamda yüklü değil. Terminalde `pip install pywin32` çalıştırılmalıdır.")
-            st.stop()
-
-        with st.status("Outlook Mailleri Taranıyor ve Gemini AI Belge Analizi Yapılıyor...", expanded=True) as status:
+    if st.button("🚀 Gelen Belgeleri TARA VE STOĞA İŞLE", type="primary", use_container_width=True):
+        with st.status("Gelen PDF Deposu Taranıyor ve Gemini AI Analizi Yapılıyor...", expanded=True) as status:
             try:
-                outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
-                inbox = outlook.GetDefaultFolder(6)
-                messages = inbox.Items
-                messages.Sort("[ReceivedTime]", True)
+                github_token = st.secrets.get("GITHUB_TOKEN", "")
+                github_repo = st.secrets.get("GITHUB_REPO", "") # örn: "kullanici_adi/repo_adi"
+                
+                if not github_token or not github_repo:
+                    st.error("🚨 Streamlit Secrets içerisinde `GITHUB_TOKEN` veya `GITHUB_REPO` eksik!")
+                    st.stop()
 
-                tarih_siniri = datetime.now() - timedelta(days=taranacak_gun)
-                eklenen_yeni_stok = 0
-                kapatilan_dekont = 0
+                url = f"https://api.github.com/repos/{github_repo}/contents/gelen_pdf_deposu"
+                headers = {"Authorization": f"token {github_token}"}
+                
+                res = requests.get(url, headers=headers)
+                
+                if res.status_code != 200 or not isinstance(res.json(), list):
+                    st.warning("⚠️ Depoda işlenecek yeni PDF dosyası bulunamadı.")
+                else:
+                    files = [f for f in res.json() if f["name"].lower().endswith(".pdf")]
+                    if not files:
+                        st.info("📂 Klasörde yeni PDF belgesi kalmamış, tüm mailler işlenmiş.")
+                    else:
+                        st.write(f"📁 Bulut Deposunda **{len(files)}** adet PDF dosyası tespit edildi. İşleniyor...")
+                        eklenen_yeni_stok = 0
 
-                for message in messages:
-                    try:
-                        rec_time = datetime.strptime(str(message.ReceivedTime)[:19], "%Y-%m-%d %H:%M:%S")
-                        if rec_time < tarih_siniri:
-                            break
+                        for file_info in files:
+                            file_name = file_info["name"]
+                            download_url = file_info["download_url"]
+                            sha = file_info["sha"]
+                            
+                            st.write(f"📄 Okunuyor: `{file_name}`")
 
-                        attachments = message.Attachments
-                        if attachments.Count > 0:
-                            for att in attachments:
-                                if att.FileName.lower().endswith(".pdf"):
-                                    st.write(f"📄 Bulunan Ek: `{att.FileName}` (Mail: {message.Subject})")
-                                    
-                                    # PDF'i geçici kaydet
-                                    temp_path = os.path.join(os.getcwd(), "temp_eval.pdf")
-                                    att.SaveAsFile(temp_path)
-                                    
-                                    with open(temp_path, "rb") as f:
-                                        pdf_bytes = f.read()
-                                        
-                                    # Gemini AI'a Pasla
-                                    ai_data = parse_pdf_with_gemini(pdf_bytes)
-                                    
-                                    if ai_data:
-                                        if ai_data.get("tip") == "BEYANNAME" and ai_data.get("beyanname_no"):
-                                            # Stok Paketini Oluştur
-                                            yeni_stok_paketi = {
-                                                "Beyanname No": ai_data.get("beyanname_no"),
-                                                "Beyanname no": ai_data.get("beyanname_no"),
-                                                "Satıcı": ai_data.get("satici", ""),
-                                                "Alıcı": ai_data.get("alici", ""),
-                                                "Ürün": ai_data.get("urun", ""),
-                                                "Fatura No": ai_data.get("fatura_no", ""),
-                                                "Miktar": str(ai_data.get("miktar", 0.0)),
-                                                "Birim": ai_data.get("birim", "KG"),
-                                                "Rejim": ai_data.get("rejim", "71 71 (Antrepo)"),
-                                                "Terminal": ai_data.get("terminal", ""),
-                                                "Çıkış": "0.0",
-                                                "Kalan": str(ai_data.get("miktar", 0.0)),
-                                                "Bağlı Antrepo No": ai_data.get("bagli_an_no", ""),
-                                                "Kayıt Yapan Kullanıcı": f"AI Otopilot ({st.session_state.user_name})",
-                                                "Kayıt Tarihi": datetime.now().strftime("%d.%m.%Y %H:%M")
-                                            }
-                                            kaydet_yeni_stok(yeni_stok_paketi)
-                                            eklenen_yeni_stok += 1
-                                            st.write(f"   ✨ **YENİ STOK EKLENDİ:** Beyanname No: `{ai_data.get('beyanname_no')}`")
+                            # PDF'i indir
+                            pdf_bytes = requests.get(download_url, headers=headers).content
 
-                                    if os.path.exists(temp_path):
-                                        os.remove(temp_path)
-                    except Exception as e:
-                        continue
+                            # Gemini AI ile Analiz
+                            ai_data = parse_pdf_with_gemini(pdf_bytes)
 
-                status.update(label="Senkronizasyon Tamamlandı!", state="complete", expanded=False)
-                st.success(f"🎉 İşlem Bitti! Son {taranacak_gun} günde **{eklenen_yeni_stok}** adet yeni stok kaydı otomatik işlendi!")
+                            if ai_data and ai_data.get("tip") == "BEYANNAME" and ai_data.get("beyanname_no"):
+                                yeni_stok_paketi = {
+                                    "Beyanname No": ai_data.get("beyanname_no"),
+                                    "Beyanname no": ai_data.get("beyanname_no"),
+                                    "Satıcı": ai_data.get("satici", ""),
+                                    "Alıcı": ai_data.get("alici", ""),
+                                    "Ürün": ai_data.get("urun", ""),
+                                    "Fatura No": ai_data.get("fatura_no", ""),
+                                    "Miktar": str(ai_data.get("miktar", 0.0)),
+                                    "Birim": ai_data.get("birim", "KG"),
+                                    "Rejim": ai_data.get("rejim", "71 71 (Antrepo)"),
+                                    "Terminal": ai_data.get("terminal", ""),
+                                    "Çıkış": "0.0",
+                                    "Kalan": str(ai_data.get("miktar", 0.0)),
+                                    "Bağlı Antrepo No": ai_data.get("bagli_an_no", ""),
+                                    "Kayıt Yapan Kullanıcı": f"AI Otopilot ({st.session_state.user_name})",
+                                    "Kayıt Tarihi": datetime.now().strftime("%d.%m.%Y %H:%M")
+                                }
+                                kaydet_yeni_stok(yeni_stok_paketi)
+                                eklenen_yeni_stok += 1
+                                st.write(f"   ✨ **YENİ STOK EKLENDİ:** Beyanname No: `{ai_data.get('beyanname_no')}`")
+
+                                # İşlenen dosyayı GitHub'dan sil (tekrar işlenmesin)
+                                del_url = f"https://api.github.com/repos/{github_repo}/contents/gelen_pdf_deposu/{file_name}"
+                                del_data = {"message": f"İşlendi ve Silindi: {file_name}", "sha": sha}
+                                requests.delete(del_url, headers=headers, json=del_data)
+
+                        status.update(label="Senkronizasyon Tamamlandı!", state="complete", expanded=False)
+                        st.success(f"🎉 İşlem Bitti! **{eklenen_yeni_stok}** adet yeni stok kaydı veritabanına aktarıldı!")
 
             except Exception as e:
-                st.error(f"Outlook Bağlantı Hatası: {e}. Lütfen bilgisayarınızdaki Outlook uygulamasının açık olduğundan emin olun.")
+                st.error(f"Bağlantı veya AI Hatası: {e}")
 
 # --- 6. SEÇENEK: HESAPLAMA ARŞİVİ ---
 elif st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler" and st.session_state.authenticated:
