@@ -9,3 +9,4 @@ openpyxl
 xlsxwriter
 pypdf
 plotly
+google.generativeai
