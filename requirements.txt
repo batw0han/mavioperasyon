@@ -10,3 +10,4 @@ xlsxwriter
 pypdf
 plotly
 google.generativeai
+pywin32
