@@ -3,11 +3,14 @@ import base64
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import datetime as dt
 import os
 import re
+import io
+import json
 from pypdf import PdfReader
+import google.generativeai as genai
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -16,8 +19,16 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- TURBO MOD (CACHING) AYARLARI ---
+# --- GEMINI API YAPILANDIRMASI ---
+# Secrets içinde "GEMINI_API_KEY" tanımlı ise oradan alır, yoksa varsayılan
+GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
+if GEMINI_KEY != "YOUR_GEMINI_API_KEY_HERE":
+    genai.configure(api_key=GEMINI_KEY)
+    gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+else:
+    gemini_model = None
 
+# --- TURBO MOD (CACHING) AYARLARI ---
 @st.cache_resource
 def get_spreadsheet_cached():
     try:
@@ -83,6 +94,46 @@ def load_data_cached(sheet_name):
 def clear_cache():
     st.cache_data.clear()
 
+# --- GEMINI AI PDF OKUMA MOTORU ---
+def parse_pdf_with_gemini(pdf_bytes):
+    """PDF belgesini Gemini AI Vision/Text kullanarak okuyup JSON verisi çıkarır."""
+    if not gemini_model:
+        return None
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+        
+        prompt = f"""
+        Aşağıdaki gümrük belgesi metnini analiz et ve verileri kesin bir JSON formatında döndür.
+        Sadece geçerli bir JSON yanıtı ver, başka hiçbir metin yazma.
+        
+        JSON Şeması:
+        {{
+            "tip": "BEYANNAME" veya "DEKONT",
+            "beyanname_no": "26411400AN00004057 gibi 18 haneli numara",
+            "bagli_an_no": "İthalat beyannamesi ise bağlı antrepo no, yoksa ''",
+            "satici": "Gönderici firma adı",
+            "alici": "Alıcı firma adı",
+            "urun": "Ürün ticari adı",
+            "fatura_no": "Fatura Numarası",
+            "miktar": float miktar (örn: 251950.0),
+            "birim": "KG" veya "LT" veya "MT",
+            "rejim": "71 71 (Antrepo)" veya "40 71 (Kesin İthalat)",
+            "terminal": "LİMAŞ" veya "KÖRFEZ PETROKİMYA"
+        }}
+
+        Belge Metni:
+        {text}
+        """
+        response = gemini_model.generate_content(prompt)
+        clean_json_str = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(clean_json_str)
+    except Exception as e:
+        st.error(f"AI Parsing Hatası: {e}")
+        return None
+
 # --- GÜMRÜK BEYANNAMESİ V22 ULTRA FIX PARSER ---
 def parse_beyanname_pdf(uploaded_file):
     parsed_data = {}
@@ -102,14 +153,12 @@ def parse_beyanname_pdf(uploaded_file):
         if bagli_an_match:
             parsed_data["bagli_an_no"] = bagli_an_match.group(1)
 
-        # 3. Satıcı Firma (Gürültü Temizleme Entegre Edildi)
+        # 3. Satıcı Firma
         if "ARTA ENERGY" in text.upper():
             parsed_data["satici"] = "ARTA ENERGY"
         else:
             satici_match = re.search(r'([A-Z0-9\s\.\,\-\&]{3,})\n\s*[A-Z0-9\s\.\,\-]*BUL\.', text, re.IGNORECASE)
             raw_s = satici_match.group(1).strip() if satici_match else ""
-            
-            # Gürültü kelimeleri (2026, CESITLI vb.) temizle
             clean_s = re.sub(r'^(202\d|CESITLI|ÇEŞİTLİ|\d+)+', '', raw_s, flags=re.IGNORECASE).strip()
             
             if not clean_s:
@@ -122,7 +171,7 @@ def parse_beyanname_pdf(uploaded_file):
                                 break
             parsed_data["satici"] = clean_s if clean_s else "ARTA ENERGY"
 
-        # 4. Alıcı Firma (Tam Unvan Bütünleştirme)
+        # 4. Alıcı Firma
         if "MAVİ PLASTİK" in text.upper():
             parsed_data["alici"] = "MAVİ PLASTİK KİMYA İNŞAAT SAN.VE TİC.A.Ş."
         elif "KUZENLER" in text.upper() or "MYA PAZARLAMA" in text.upper():
@@ -190,6 +239,7 @@ def parse_beyanname_pdf(uploaded_file):
         st.error(f"PDF Parsing Hatası: {e}")
         
     return parsed_data
+
 # --- GÜMRÜK VERGİ DEKONTU PDF OKUYUCU ---
 def parse_vergi_dekontu_pdf(uploaded_file):
     parsed_data = {}
@@ -269,6 +319,11 @@ with st.sidebar:
 
         if st.button("Beyanname - Stok Takip", use_container_width=True):
             st.session_state.sayfa_yonetimi = "Beyanname - Stok Takip"
+            st.rerun()
+
+        # --- YENİ EKLENEN OTOMATİK HAFTALIK MAIL SENKRONİZASYON BUTONU ---
+        if st.button("📧 Outlook Mail Senkronizasyonu", use_container_width=True):
+            st.session_state.sayfa_yonetimi = "Outlook Senkronizasyon"
             st.rerun()
 
         st.divider()
@@ -364,12 +419,10 @@ st.markdown("<div style='text-align: center;'><h1 style='color: #2596BE; margin-
 st.divider()
 
 def to_excel(df):
-    import io
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='stok')
     return output.getvalue()
-
 
 # =====================================================================
 # --- MERKEZİ SAYFA GÖSTERİM YÖNETİMİ ---
@@ -487,10 +540,8 @@ if st.session_state.sayfa_yonetimi == "Hesaplama Araçları":
             tba = st.number_input("Eklenen TBA (gr)", min_value=0.0)
             if st.button("UYGUNLUK DENETLE", use_container_width=True):
                 db_res, tba_res = (toplam_h / 100) * 0.8, (toplam_h / 100) * 78
-                db_durum = "UYGUN ✅" if abs(db - db_res) <= (db_res * 0.1) else "HATALI ❌"
-                sonuc_karti_bas(db_durum, "Denatonyum Benzoat", [{"label": "Gereken", "value": f"{db_res:.2f} gr"}, {"label": "Girdiğiniz", "value": f"{db:.2f} gr"}])
-                tba_durum = "UYGUN ✅" if abs(tba - tba_res) <= (tba_res * 0.1) else "HATALI ❌"
-                sonuc_karti_bas(tba_durum, "Tersiyer Butanol", [{"label": "Gereken", "value": f"{tba_res:.2f} gr"}, {"label": "Girdiğiniz", "value": f"{tba:.2f} gr"}])
+                st.write(f"Denatonyum Benzoat Gereken: {db_res:.2f} gr | Girdiğiniz: {db:.2f} gr")
+                st.write(f"TBA Gereken: {tba_res:.2f} gr | Girdiğiniz: {tba:.2f} gr")
 
 # --- 2. SEÇENEK: ANA SAYFA (DASHBOARD) ---
 elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authenticated:
@@ -502,19 +553,16 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
     df_stoklar = pd.DataFrame(stok_listesi) if stok_listesi else pd.DataFrame()
     
     if not df_stoklar.empty:
-        # Sayısal alanları dönüştürme
         for col in ["Miktar", "Çıkış", "Kalan"]:
             if col in df_stoklar.columns:
                 df_stoklar[col] = df_stoklar[col].astype(str).str.replace(",", ".").str.strip()
                 df_stoklar[col] = pd.to_numeric(df_stoklar[col], errors="coerce").fillna(0.0)
 
-        # Aktif stokları süz
         df_aktif_stok = df_stoklar[df_stoklar["Kalan"] > 0].copy()
 
         toplam_stok_kalemi = len(df_aktif_stok)
         toplam_kalan_stok = df_aktif_stok["Kalan"].sum() if "Kalan" in df_aktif_stok.columns else 0.0
 
-        # --- KPI ÖZET KARTLARI ---
         kpi1, kpi2 = st.columns(2)
         with kpi1:
             st.metric(label="Aktif Beyanname", value=f"{toplam_stok_kalemi} Adet", delta="Elde Stok Olan")
@@ -523,18 +571,15 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
 
         st.divider()
 
-        # --- İNTERAKTİF DİNAMİK TEK GRAFİK ---
         term_col = next((c for c in df_aktif_stok.columns if "terminal" in c.lower() or "antrepo" in c.lower()), "Terminal")
         mevcut_urun_listesi = sorted(df_aktif_stok["Ürün"].unique().tolist()) if "Ürün" in df_aktif_stok.columns else []
         
-        # Filtreleme Kutusu
         secilen_g_urun = st.selectbox(
             "🔍 Detayını Görmek İstediğiniz Ürünü Seçin (Antrepo dağılımı için ürüne tıklayın):",
             options=["Tüm Ürünler Özeti"] + mevcut_urun_listesi
         )
 
         if secilen_g_urun == "Tüm Ürünler Özeti":
-            # Genel Ürün Dağılımı
             df_chart = df_aktif_stok.groupby("Ürün")["Kalan"].sum().reset_index()
             
             fig = px.bar(
@@ -558,7 +603,6 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
             st.plotly_chart(fig, use_container_width=True)
 
         else:
-            # Seçilen Ürünün Antrepo Dağılımı
             df_sub = df_aktif_stok[df_aktif_stok["Ürün"] == secilen_g_urun]
             df_chart_sub = df_sub.groupby(term_col)["Kalan"].sum().reset_index()
 
@@ -584,7 +628,6 @@ elif st.session_state.sayfa_yonetimi == "Ana Sayfa" and st.session_state.authent
 
         st.divider()
 
-        # --- TABLO ---
         st.markdown("#### 📦 Son Eklenen Stok Kayıtları")
         st.dataframe(df_stoklar.tail(5), use_container_width=True, hide_index=True)
 
@@ -596,14 +639,12 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
     st.markdown("### Yeni Stok Kaydı Oluştur")
     st.caption("Gümrük beyannamesi PDF'ini yükleyerek verileri otomatik işleyin.")
 
-    # --- 📄 PDF YÜKLEME VE OTOMATİK VERİTABANI İŞLEME MOTORU ---
     with st.expander("📄 Gümrük Beyannamesi PDF Yükle (Otomatik Doldur)", expanded=True):
         uploaded_pdf = st.file_uploader("Gümrükçünün attığı Beyanname PDF dosyasını buraya sürükleyin:", type=["pdf"])
         pdf_data = {}
         if uploaded_pdf is not None:
             pdf_data = parse_beyanname_pdf(uploaded_pdf)
             
-            # --- OTOMATİK LİSTE EKLEME MANTIĞI ---
             if pdf_data.get("urun"):
                 u_check = load_data_cached("urun_listesi")
                 m_u = [row.get("urun_adi","").strip() for row in u_check if "urun_adi" in row]
@@ -641,7 +682,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
             if pdf_data.get("bagli_an_no"):
                 st.info(f"🔗 Bağlı Antrepo Beyannamesi Tespit Edildi: **{pdf_data['bagli_an_no']}**")
 
-    # --- ESNEK VERİ LİSTELEME ---
     u_data = load_data_cached("urun_listesi")
     mevcut_urunler = sorted(list(set([row["urun_adi"] for row in u_data if "urun_adi" in row and str(row["urun_adi"]).strip() != ""])))
     
@@ -667,7 +707,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
     term_data = load_data_cached("terminal_listesi")
     mevcut_terminaller = sorted(list(set([row["terminal_adi"] for row in term_data if "terminal_adi" in row and str(row["terminal_adi"]).strip() != ""]))) if term_data else []
 
-    # --- HIZLI VERİ EKLEME BUTONLARI ---
     st.markdown("#### Hızlı Listelere Veri Ekleme")
     btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
     
@@ -742,7 +781,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
     birim_options = ["KG", "LT", "MT"]
     def_birim_idx = birim_options.index(pdf_data["birim"]) if pdf_data.get("birim") in birim_options else 0
 
-    # Float casting işlemi
     parsed_val = float(pdf_data.get("miktar", 0.0))
 
     col3, col4, col5 = st.columns(3)
@@ -758,7 +796,6 @@ elif st.session_state.sayfa_yonetimi == "Yeni Stok Ekle" and st.session_state.au
 
     bagli_an_girisi = st.text_input("Bağlı Antrepo Beyanname No (Varsa):", value=pdf_data.get("bagli_an_no", ""), placeholder="Örn: 26411400AN00001439")
 
-    # Otomatik Kalan Miktar Hesaplama
     kalan_miktar = mira_miktar - cikis_miktari
     st.info(f"Hesaplanan Kalan Stok Miktarı: **{kalan_miktar:,.2f} {birim}**")
 
@@ -798,13 +835,11 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
     if stok_data:
         df_stok = pd.DataFrame(stok_data)
         
-        # 1. ÖZET TABLO
         st.markdown("#### 📦 Mevcut Stok Özet Tablosu")
         st.dataframe(df_stok, use_container_width=True, hide_index=True)
         
         st.divider()
 
-        # 2. 📄 GÜMRÜK VERGİ DEKONTU İLE OTOMATİK STOK DÜŞÜŞİ MODÜLÜ
         with st.expander("📄 Gümrük Vergi Dekontu Yükle (Otomatik Stok Düş)", expanded=True):
             dekont_file = st.file_uploader("Gümrük Vergi Dekontu PDF'ini (Vakıfbank / Ziraat vb.) yükleyin:", type=["pdf"], key="dekont_uploader")
             
@@ -814,7 +849,6 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
                 
                 if im_no:
                     st.info(f"🔍 Dekont Okundu. Tespit Edilen İthalat Beyanname No (IM): **{im_no}**")
-                    
                     im_satir = df_stok[df_stok.apply(lambda r: im_no in str(r.values), axis=1)]
                     
                     if not im_satir.empty:
@@ -870,7 +904,6 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
 
         st.divider()
         
-        # 3. MANUEL STOK ÇIKIŞ İŞLEM MODÜLÜ
         st.markdown("#### 📤 Manuel Stoktan Ürün Çıkışı Yap")
         
         b_col_name = next((c for c in df_stok.columns if "beyanname" in c.lower()), df_stok.columns[0])
@@ -947,7 +980,6 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
                                     personel_adi=st.session_state.user_name,
                                     hedef_sheet=kayitlar_sheet
                                 )
-                                
                                 st.success(f"{secilen_b_no} nolu beyannameden {cikis_miktari_girilen:,.2f} {s_satir.get(birim_key, 'KG')} ({cikis_turu}) başarıyla düşüldü!")
                                 st.rerun()
 
@@ -957,7 +989,91 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
     else:
         st.info("Henüz kaydedilmiş bir stok kaydı bulunmuyor.")
 
-# --- 5. SEÇENEK: HESAPLAMA ARŞİVİ ---
+# --- 5. SEÇENEK: YENİ EKLENEN OUTLOOK + GEMINI HAFTALIK MAIL SENKRONİZASYON SAYFASI ---
+elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_state.authenticated:
+    st.markdown("### 📧 Otomatik Outlook Mail & AI Stok Senkronizasyonu")
+    st.caption("Bu ekran, bilgisayarınızda açık olan Outlook uygulamasından son 7 gündeki gümrük maillerini tarar, PDF'leri Gemini AI ile analiz edip otomatik stoğa işler.")
+
+    st.info("💡 **Nasıl Çalışır?** Bilgisayarınızda Outlook açık durumdayken aşağıdaki **'HAFTALIK MAİLLERİ TARA VE İŞLE'** butonuna basın. Şifre girmeden mailler taranır.")
+
+    taranacak_gun = st.slider("Kaç Günlük Mailler Taranacak?", min_value=1, max_value=14, value=7)
+
+    if st.button("🚀 HAFTALIK MAİLLERİ TARA VE İŞLE", type="primary", use_container_width=True):
+        try:
+            import win32com.client
+        except ImportError:
+            st.error("🚨 `pywin32` kütüphanesi ortamda yüklü değil. Terminalde `pip install pywin32` çalıştırılmalıdır.")
+            st.stop()
+
+        with st.status("Outlook Mailleri Taranıyor ve Gemini AI Belge Analizi Yapılıyor...", expanded=True) as status:
+            try:
+                outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+                inbox = outlook.GetDefaultFolder(6)
+                messages = inbox.Items
+                messages.Sort("[ReceivedTime]", True)
+
+                tarih_siniri = datetime.now() - timedelta(days=taranacak_gun)
+                eklenen_yeni_stok = 0
+                kapatilan_dekont = 0
+
+                for message in messages:
+                    try:
+                        rec_time = datetime.strptime(str(message.ReceivedTime)[:19], "%Y-%m-%d %H:%M:%S")
+                        if rec_time < tarih_siniri:
+                            break
+
+                        attachments = message.Attachments
+                        if attachments.Count > 0:
+                            for att in attachments:
+                                if att.FileName.lower().endswith(".pdf"):
+                                    st.write(f"📄 Bulunan Ek: `{att.FileName}` (Mail: {message.Subject})")
+                                    
+                                    # PDF'i geçici kaydet
+                                    temp_path = os.path.join(os.getcwd(), "temp_eval.pdf")
+                                    att.SaveAsFile(temp_path)
+                                    
+                                    with open(temp_path, "rb") as f:
+                                        pdf_bytes = f.read()
+                                        
+                                    # Gemini AI'a Pasla
+                                    ai_data = parse_pdf_with_gemini(pdf_bytes)
+                                    
+                                    if ai_data:
+                                        if ai_data.get("tip") == "BEYANNAME" and ai_data.get("beyanname_no"):
+                                            # Stok Paketini Oluştur
+                                            yeni_stok_paketi = {
+                                                "Beyanname No": ai_data.get("beyanname_no"),
+                                                "Beyanname no": ai_data.get("beyanname_no"),
+                                                "Satıcı": ai_data.get("satici", ""),
+                                                "Alıcı": ai_data.get("alici", ""),
+                                                "Ürün": ai_data.get("urun", ""),
+                                                "Fatura No": ai_data.get("fatura_no", ""),
+                                                "Miktar": str(ai_data.get("miktar", 0.0)),
+                                                "Birim": ai_data.get("birim", "KG"),
+                                                "Rejim": ai_data.get("rejim", "71 71 (Antrepo)"),
+                                                "Terminal": ai_data.get("terminal", ""),
+                                                "Çıkış": "0.0",
+                                                "Kalan": str(ai_data.get("miktar", 0.0)),
+                                                "Bağlı Antrepo No": ai_data.get("bagli_an_no", ""),
+                                                "Kayıt Yapan Kullanıcı": f"AI Otopilot ({st.session_state.user_name})",
+                                                "Kayıt Tarihi": datetime.now().strftime("%d.%m.%Y %H:%M")
+                                            }
+                                            kaydet_yeni_stok(yeni_stok_paketi)
+                                            eklenen_yeni_stok += 1
+                                            st.write(f"   ✨ **YENİ STOK EKLENDİ:** Beyanname No: `{ai_data.get('beyanname_no')}`")
+
+                                    if os.path.exists(temp_path):
+                                        os.remove(temp_path)
+                    except Exception as e:
+                        continue
+
+                status.update(label="Senkronizasyon Tamamlandı!", state="complete", expanded=False)
+                st.success(f"🎉 İşlem Bitti! Son {taranacak_gun} günde **{eklenen_yeni_stok}** adet yeni stok kaydı otomatik işlendi!")
+
+            except Exception as e:
+                st.error(f"Outlook Bağlantı Hatası: {e}. Lütfen bilgisayarınızdaki Outlook uygulamasının açık olduğundan emin olun.")
+
+# --- 6. SEÇENEK: HESAPLAMA ARŞİVİ ---
 elif st.session_state.sayfa_yonetimi == "Kaydedilen İşlemler" and st.session_state.authenticated:
     st.markdown("### Kaydedilen İşlemler ve Stok Hareketleri Arşivi")
     data = load_data_cached("t_kayitlari")
