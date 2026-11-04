@@ -11,7 +11,8 @@ import io
 import json
 import requests
 from pypdf import PdfReader
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -21,12 +22,11 @@ st.set_page_config(
 )
 
 # --- GEMINI API YAPILANDIRMASI ---
-GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
-if GEMINI_KEY != "YOUR_GEMINI_API_KEY_HERE":
-    genai.configure(api_key=GEMINI_KEY)
-    gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "")
+if GEMINI_KEY:
+    client_ai = genai.Client(api_key=GEMINI_KEY)
 else:
-    gemini_model = None
+    client_ai = None
 
 # --- TURBO MOD (CACHING) AYARLARI ---
 @st.cache_resource
@@ -96,8 +96,8 @@ def clear_cache():
 
 # --- GEMINI AI PDF OKUMA MOTORU ---
 def parse_pdf_with_gemini(pdf_bytes):
-    """PDF belgesini Gemini AI Vision/Text kullanarak okuyup JSON verisi çıkarır."""
-    if not gemini_model:
+    """PDF belgesini Yeni Gemini SDK kullanarak okuyup JSON verisi çıkarır."""
+    if not client_ai:
         return None
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -127,7 +127,10 @@ def parse_pdf_with_gemini(pdf_bytes):
         Belge Metni:
         {text}
         """
-        response = gemini_model.generate_content(prompt)
+        response = client_ai.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
         clean_json_str = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json_str)
     except Exception as e:
