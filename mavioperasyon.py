@@ -1041,22 +1041,24 @@ elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_
                     if not all_files:
                         st.warning("⚠️ Depo klasöründe işlenecek `.pdf` uzantılı dosya kalmadı, tüm stoklar güncel!")
                     else:
-                        # KOTA PATLAMAMASI İÇİN TEK SEFERDE MAX 10 DOSYA İŞLE
                         files_to_process = all_files[:10]
-                        st.write(f"📦 Toplam **{len(all_files)}** PDF var. Güvenli modda ilk **{len(files_to_process)}** adet PDF işleniyor...")
+                        st.write(f"📦 Toplam **{len(all_files)}** PDF var. Güvenli modda **{len(files_to_process)}** adet PDF işleniyor...")
+                        
+                        # Canlı Güncelleme Alanı
+                        live_status = st.empty()
+                        progress_bar = st.progress(0)
                         eklenen_yeni_stok = 0
 
-                        for file_info in files_to_process:
+                        for idx, file_info in enumerate(files_to_process):
                             file_name = file_info["name"]
                             download_url = file_info["download_url"]
                             sha = file_info["sha"]
                             
-                            st.write(f"📄 Okunuyor: `{file_name}`")
+                            # Ekranda anlık hangi dosyada olduğunu güncelle
+                            live_status.markdown(f"📄 **İşleniyor ({idx+1}/{len(files_to_process)}):** `{file_name}`")
+                            progress_bar.progress((idx + 1) / len(files_to_process))
 
-                            # PDF indir
                             pdf_bytes = requests.get(download_url, headers=headers).content
-
-                            # Gemini AI ile Analiz
                             ai_data = parse_pdf_with_gemini(pdf_bytes)
 
                             if ai_data and ai_data.get("tip") == "BEYANNAME" and ai_data.get("beyanname_no"):
@@ -1079,18 +1081,15 @@ elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_
                                 }
                                 kaydet_yeni_stok(yeni_stok_paketi)
                                 eklenen_yeni_stok += 1
-                                st.write(f"   ✨ **YENİ STOK EKLENDİ:** Beyanname No: `{ai_data.get('beyanname_no')}`")
 
-                                # İşlenen dosyayı sil
                                 del_url = f"https://api.github.com/repos/{github_repo}/contents/gelen_pdf_deposu/{file_name}"
                                 del_data = {"message": f"İşlendi ve Silindi: {file_name}", "sha": sha}
                                 requests.delete(del_url, headers=headers, json=del_data)
                             
-                            # Gemini kotalarına takılmamak için her dosya arası 2 saniye dinlen
-                            time.sleep(2)
+                            time.sleep(1)
 
                         status.update(label="Paket Senkronizasyonu Tamamlandı!", state="complete", expanded=False)
-                        st.success(f"🎉 Bu turda **{eklenen_yeni_stok}** adet stok veritabanına aktarıldı ve buluttan silindi! Kalan PDF'ler için butona tekrar basabilirsiniz.")
+                        st.success(f"🎉 Bu turda **{eklenen_yeni_stok}** adet stok veritabanına aktarıldı! Kalan PDF'ler için butona tekrar basabilirsiniz.")
 
             except Exception as e:
                 st.error(f"Bağlantı veya AI Hatası: {e}")
