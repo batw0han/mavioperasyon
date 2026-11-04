@@ -1,6 +1,7 @@
 import streamlit as st
 import base64
 import gspread
+import time
 from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime, timedelta
@@ -96,46 +97,58 @@ def clear_cache():
 
 # --- GEMINI AI PDF OKUMA MOTORU ---
 def parse_pdf_with_gemini(pdf_bytes):
-    """PDF belgesini Yeni Gemini SDK kullanarak okuyup JSON verisi çıkarır."""
+    """PDF belgesini Gemini AI kullanarak okuyup JSON verisi çıkarır. 503 hatasında otomatik yeniden dener."""
     if not client_ai:
         return None
-    try:
-        reader = PdfReader(io.BytesIO(pdf_bytes))
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-        
-        prompt = f"""
-        Aşağıdaki gümrük belgesi metnini analiz et ve verileri kesin bir JSON formatında döndür.
-        Sadece geçerli bir JSON yanıtı ver, başka hiçbir metin yazma.
-        
-        JSON Şeması:
-        {{
-            "tip": "BEYANNAME" veya "DEKONT",
-            "beyanname_no": "26411400AN00004057 gibi 18 haneli numara",
-            "bagli_an_no": "İthalat beyannamesi ise bağlı antrepo no, yoksa ''",
-            "satici": "Gönderici firma adı",
-            "alici": "Alıcı firma adı",
-            "urun": "Ürün ticari adı",
-            "fatura_no": "Fatura Numarası",
-            "miktar": float miktar (örn: 251950.0),
-            "birim": "KG" veya "LT" veya "MT",
-            "rejim": "71 71 (Antrepo)" veya "40 71 (Kesin İthalat)",
-            "terminal": "LİMAŞ" veya "KÖRFEZ PETROKİMYA"
-        }}
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            reader = PdfReader(io.BytesIO(pdf_bytes))
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+            
+            prompt = f"""
+            Aşağıdaki gümrük belgesi metnini analiz et ve verileri kesin bir JSON formatında döndür.
+            Sadece geçerli bir JSON yanıtı ver, başka hiçbir metin yazma.
+            
+            JSON Şeması:
+            {{
+                "tip": "BEYANNAME" veya "DEKONT",
+                "beyanname_no": "26411400AN00004057 gibi 18 haneli numara",
+                "bagli_an_no": "İthalat beyannamesi ise bağlı antrepo no, yoksa ''",
+                "satici": "Gönderici firma adı",
+                "alici": "Alıcı firma adı",
+                "urun": "Ürün ticari adı",
+                "fatura_no": "Fatura Numarası",
+                "miktar": float miktar (örn: 251950.0),
+                "birim": "KG" veya "LT" veya "MT",
+                "rejim": "71 71 (Antrepo)" veya "40 71 (Kesin İthalat)",
+                "terminal": "LİMAŞ" veya "KÖRFEZ PETROKİMYA"
+            }}
 
-        Belge Metni:
-        {text}
-        """
-        response = client_ai.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=prompt,
-        )
-        clean_json_str = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_json_str)
-    except Exception as e:
-        st.error(f"AI Parsing Hatası: {e}")
-        return None
+            Belge Metni:
+            {text}
+            """
+            
+            response = client_ai.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=prompt,
+            )
+            clean_json_str = response.text.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_json_str)
+            
+        except Exception as e:
+            err_msg = str(e)
+            if "503" in err_msg or "UNAVAILABLE" in err_msg:
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 3
+                    st.warning(f"⏳ Google AI sunucusu yoğun. {wait_time} saniye beklenip tekrar deneniyor... (Deneme {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+            st.error(f"AI Parsing Hatası: {e}")
+            return None
 
 # --- GÜMRÜK BEYANNAMESİ V22 ULTRA FIX PARSER ---
 def parse_beyanname_pdf(uploaded_file):
