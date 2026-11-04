@@ -128,7 +128,7 @@ def parse_pdf_with_gemini(pdf_bytes):
         {text}
         """
         response = client_ai.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.8-flash',
             contents=prompt,
         )
         clean_json_str = response.text.replace("```json", "").replace("```", "").strip()
