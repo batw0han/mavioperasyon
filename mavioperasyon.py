@@ -1014,7 +1014,7 @@ elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_
     st.markdown("### ☁️ Otomatik Stok Senkronizasyon Paneli")
     st.caption("Masaüstü scripti ile GitHub deposuna aktarılan gümrük PDF'leri burada Gemini AI ile 10'ar adetlik güvenli paketler halinde analiz edilir.")
 
-    if st.button("🚀 Gelen Belgeleri TARA VE STOĞA İŞLE (10'lu Paket)", type="primary", use_container_width=True):
+    if st.button("🚀 Gelen Belgeleri TARA VE STOĞA İŞLE", type="primary", use_container_width=True):
         with st.status("Gelen PDF Deposu Taranıyor ve Gemini AI Analizi Yapılıyor...", expanded=True) as status:
             try:
                 github_token = st.secrets.get("GITHUB_TOKEN", "").strip()
