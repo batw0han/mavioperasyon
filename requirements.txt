@@ -11,3 +11,4 @@ pypdf
 plotly
 google.generativeai
 pywin32
+requests
