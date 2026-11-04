@@ -1008,7 +1008,21 @@ elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_
                     st.stop()
 
                 url = f"https://api.github.com/repos/{github_repo}/contents/gelen_pdf_deposu"
-                headers = {"Authorization": f"token {github_token}"}
+                headers = {
+                    "Authorization": f"Bearer {github_token}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
+                
+                res = requests.get(url, headers=headers)
+                
+                # Neden bulunamadığını ekrana bastıralım:
+                if res.status_code != 200:
+                    st.error(f"🚨 GitHub API Hatası! Kod: {res.status_code} | Yanıt: {res.text}")
+                else:
+                    repo_contents = res.json()
+                    files = [f for f in repo_contents if isinstance(f, dict) and f.get("name", "").lower().endswith(".pdf")]
+                    if not files:
+                        st.warning(f"⚠️ Klasör bağlandı ancak `.pdf` uzantılı dosya bulunamadı. Gelen verideki eleman sayısı: {len(repo_contents)}"
                 
                 res = requests.get(url, headers=headers)
                 
