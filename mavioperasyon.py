@@ -97,7 +97,7 @@ def clear_cache():
 
 # --- GEMINI AI PDF OKUMA MOTORU ---
 def parse_pdf_with_gemini(pdf_bytes):
-    """PDF belgesini Gemini AI kullanarak okuyup JSON verisi çıkarır. 503 hatasında otomatik yeniden dener."""
+    """PDF belgesini Gemini AI kullanarak okuyup JSON verisi çıkarır. Timeout ve 503 korumalıdır."""
     if not client_ai:
         return None
     
@@ -132,22 +132,25 @@ def parse_pdf_with_gemini(pdf_bytes):
             {text}
             """
             
+            # config timeout eklenerek sonsuz bekleme engellendi (15 saniye)
             response = client_ai.models.generate_content(
                 model='gemini-3.8-flash',
                 contents=prompt,
+                config=types.GenerateContentConfig(
+                    http_options=types.HttpOptions(timeout=15000)
+                )
             )
             clean_json_str = response.text.replace("```json", "").replace("```", "").strip()
             return json.loads(clean_json_str)
             
         except Exception as e:
             err_msg = str(e)
-            if "503" in err_msg or "UNAVAILABLE" in err_msg:
+            if "503" in err_msg or "UNAVAILABLE" in err_msg or "deadline" in err_msg.lower():
                 if attempt < max_retries - 1:
                     wait_time = (attempt + 1) * 3
-                    st.warning(f"⏳ Google AI sunucusu yoğun. {wait_time} saniye beklenip tekrar deneniyor... (Deneme {attempt + 1}/{max_retries})")
                     time.sleep(wait_time)
                     continue
-            st.error(f"AI Parsing Hatası: {e}")
+            st.error(f"AI Parsing Hatası ({pdf_bytes[:10]}...): {e}")
             return None
 
 # --- GÜMRÜK BEYANNAMESİ V22 ULTRA FIX PARSER ---
