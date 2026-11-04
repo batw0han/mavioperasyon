@@ -9,5 +9,5 @@ openpyxl
 xlsxwriter
 pypdf
 plotly
-google.generativeai
+google-genai
 requests
