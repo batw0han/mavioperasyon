@@ -1022,7 +1022,7 @@ elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_
                     repo_contents = res.json()
                     files = [f for f in repo_contents if isinstance(f, dict) and f.get("name", "").lower().endswith(".pdf")]
                     if not files:
-                        st.warning(f"⚠️ Klasör bağlandı ancak `.pdf` uzantılı dosya bulunamadı. Gelen verideki eleman sayısı: {len(repo_contents)}"
+                        st.warning(f"⚠️ Klasör bağlandı ancak `.pdf` uzantılı dosya bulunamadı. Gelen verideki eleman sayısı: {len(repo_contents)}")
                 
                 res = requests.get(url, headers=headers)
                 
