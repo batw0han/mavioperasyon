@@ -994,17 +994,18 @@ elif st.session_state.sayfa_yonetimi == "Beyanname - Stok Takip" and st.session_
 
 # --- 5. SEÇENEK: GITHUB BULUT DEPOSU İLE AI STOK SENKRONİZASYON SAYFASI ---
 elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_state.authenticated:
+    import time
     st.markdown("### ☁️ Otomatik Stok Senkronizasyon Paneli")
-    st.caption("Cuma günleri masaüstü scripti ile GitHub deposuna aktarılan gümrük PDF'leri burada Gemini AI ile analiz edilir ve veritabanına otomatik işlenir.")
+    st.caption("Masaüstü scripti ile GitHub deposuna aktarılan gümrük PDF'leri burada Gemini AI ile 10'ar adetlik güvenli paketler halinde analiz edilir.")
 
-    if st.button("🚀 Gelen Belgeleri TARA VE STOĞA İŞLE", type="primary", use_container_width=True):
+    if st.button("🚀 Gelen Belgeleri TARA VE STOĞA İŞLE (10'lu Paket)", type="primary", use_container_width=True):
         with st.status("Gelen PDF Deposu Taranıyor ve Gemini AI Analizi Yapılıyor...", expanded=True) as status:
             try:
-                github_token = st.secrets.get("GITHUB_TOKEN", "")
-                github_repo = st.secrets.get("GITHUB_REPO", "") # örn: "kullanici_adi/repo_adi"
+                github_token = st.secrets.get("GITHUB_TOKEN", "").strip()
+                github_repo = st.secrets.get("GITHUB_REPO", "").strip()
                 
                 if not github_token or not github_repo:
-                    st.error("🚨 Streamlit Secrets içerisinde `GITHUB_TOKEN` veya `GITHUB_REPO` eksik!")
+                    st.error("🚨 Streamlit Secrets içerisinde GITHUB_TOKEN veya GITHUB_REPO eksik!")
                     st.stop()
 
                 url = f"https://api.github.com/repos/{github_repo}/contents/gelen_pdf_deposu"
@@ -1015,35 +1016,28 @@ elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_
                 
                 res = requests.get(url, headers=headers)
                 
-                # Neden bulunamadığını ekrana bastıralım:
                 if res.status_code != 200:
-                    st.error(f"🚨 GitHub API Hatası! Kod: {res.status_code} | Yanıt: {res.text}")
+                    st.error(f"🚨 GitHub API Hatası ({res.status_code}): {res.text}")
                 else:
                     repo_contents = res.json()
-                    files = [f for f in repo_contents if isinstance(f, dict) and f.get("name", "").lower().endswith(".pdf")][:15]
-                    if not files:
-                        st.warning(f"⚠️ Klasör bağlandı ancak `.pdf` uzantılı dosya bulunamadı. Gelen verideki eleman sayısı: {len(repo_contents)}")
-                
-                res = requests.get(url, headers=headers)
-                
-                if res.status_code != 200 or not isinstance(res.json(), list):
-                    st.warning("⚠️ Depoda işlenecek yeni PDF dosyası bulunamadı.")
-                else:
-                    files = [f for f in res.json() if f["name"].lower().endswith(".pdf")]
-                    if not files:
-                        st.info("📂 Klasörde yeni PDF belgesi kalmamış, tüm mailler işlenmiş.")
+                    all_files = [f for f in repo_contents if isinstance(f, dict) and f.get("name", "").lower().endswith(".pdf")]
+                    
+                    if not all_files:
+                        st.warning("⚠️ Depo klasöründe işlenecek `.pdf` uzantılı dosya kalmadı, tüm stoklar güncel!")
                     else:
-                        st.write(f"📁 Bulut Deposunda **{len(files)}** adet PDF dosyası tespit edildi. İşleniyor...")
+                        # KOTA PATLAMAMASI İÇİN TEK SEFERDE MAX 10 DOSYA İŞLE
+                        files_to_process = all_files[:10]
+                        st.write(f"📦 Toplam **{len(all_files)}** PDF var. Güvenli modda ilk **{len(files_to_process)}** adet PDF işleniyor...")
                         eklenen_yeni_stok = 0
 
-                        for file_info in files:
+                        for file_info in files_to_process:
                             file_name = file_info["name"]
                             download_url = file_info["download_url"]
                             sha = file_info["sha"]
                             
                             st.write(f"📄 Okunuyor: `{file_name}`")
 
-                            # PDF'i indir
+                            # PDF indir
                             pdf_bytes = requests.get(download_url, headers=headers).content
 
                             # Gemini AI ile Analiz
@@ -1071,13 +1065,16 @@ elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_
                                 eklenen_yeni_stok += 1
                                 st.write(f"   ✨ **YENİ STOK EKLENDİ:** Beyanname No: `{ai_data.get('beyanname_no')}`")
 
-                                # İşlenen dosyayı GitHub'dan sil (tekrar işlenmesin)
+                                # İşlenen dosyayı sil
                                 del_url = f"https://api.github.com/repos/{github_repo}/contents/gelen_pdf_deposu/{file_name}"
                                 del_data = {"message": f"İşlendi ve Silindi: {file_name}", "sha": sha}
                                 requests.delete(del_url, headers=headers, json=del_data)
+                            
+                            # Gemini kotalarına takılmamak için her dosya arası 2 saniye dinlen
+                            time.sleep(2)
 
-                        status.update(label="Senkronizasyon Tamamlandı!", state="complete", expanded=False)
-                        st.success(f"🎉 İşlem Bitti! **{eklenen_yeni_stok}** adet yeni stok kaydı veritabanına aktarıldı!")
+                        status.update(label="Paket Senkronizasyonu Tamamlandı!", state="complete", expanded=False)
+                        st.success(f"🎉 Bu turda **{eklenen_yeni_stok}** adet stok veritabanına aktarıldı ve buluttan silindi! Kalan PDF'ler için butona tekrar basabilirsiniz.")
 
             except Exception as e:
                 st.error(f"Bağlantı veya AI Hatası: {e}")
