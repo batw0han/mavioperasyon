@@ -1041,8 +1041,8 @@ elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_
                     if not all_files:
                         st.warning("⚠️ Depo klasöründe işlenecek `.pdf` uzantılı dosya kalmadı, tüm stoklar güncel!")
                     else:
-                        files_to_process = all_files[:10]
-                        st.write(f"📦 Toplam **{len(all_files)}** PDF var. Güvenli modda **{len(files_to_process)}** adet PDF işleniyor...")
+                        files_to_process = all_files[:5]
+                        st.write(f"📦 Toplam **{len(all_files)}** PDF var. **{len(files_to_process)}** adet PDF işleniyor...")
                         
                         # Canlı Güncelleme Alanı
                         live_status = st.empty()
@@ -1086,7 +1086,7 @@ elif st.session_state.sayfa_yonetimi == "Outlook Senkronizasyon" and st.session_
                                 del_data = {"message": f"İşlendi ve Silindi: {file_name}", "sha": sha}
                                 requests.delete(del_url, headers=headers, json=del_data)
                             
-                            time.sleep(1)
+                            time.sleep(4)
 
                         status.update(label="Paket Senkronizasyonu Tamamlandı!", state="complete", expanded=False)
                         st.success(f"🎉 Bu turda **{eklenen_yeni_stok}** adet stok veritabanına aktarıldı! Kalan PDF'ler için butona tekrar basabilirsiniz.")
